@@ -1,16 +1,16 @@
-# Create admin and test users for CMS Inspection app
+# Create admin and test users for ICMS Inspection app
 puts "Creating users..."
 puts "=" * 50
 
 users_to_create = [
   {
-    email: 'admin@cms.com',
+    email: 'admin@icms.com',
     password: 'Admin_4312!',
     role: :admin,
     description: 'Admin user'
   },
   {
-    email: 'tester@cms.com',
+    email: 'tester@icms.com',
     password: 'Tester_4312!',
     role: :inspector,
     description: 'Test user (Inspector)'

@@ -274,12 +274,12 @@ Devise.setup do |config|
   # config.omniauth :github, 'APP_ID', 'APP_SECRET', scope: 'user,public_repo'
 
   # Microsoft Entra ID (Azure AD) — single-tenant OIDC
-  if ENV["AZURE_CLIENT_ID"].present?
+  if ENV["AZURE_CLIENT_ID"].present? && ENV["AZURE_TENANT_ID"].present?
     config.omniauth :microsoft_graph,
       ENV["AZURE_CLIENT_ID"],
       ENV["AZURE_CLIENT_SECRET"],
       scope: "openid profile email User.Read",
-      tenant: ENV.fetch("AZURE_TENANT_ID", "common")
+      tenant: ENV["AZURE_TENANT_ID"]
   end
 
   # ==> Warden configuration

@@ -1,6 +1,6 @@
 # Azure Deployment Guide - Complete Setup
 
-This guide provides step-by-step instructions to deploy the CMS Inspection application to Azure with a **NEW Azure account**, including all required resources, database setup, and nginx configuration.
+This guide provides step-by-step instructions to deploy the ICMS Inspection application to Azure with a **NEW Azure account**, including all required resources, database setup, and nginx configuration.
 
 ## Architecture Overview
 
@@ -75,12 +75,12 @@ Set these variables in your terminal before starting:
 ```bash
 export RESOURCE_GROUP="geometrics-icms-rg"
 export LOCATION="westus3"
-export APP_NAME="geometriceng-cms-inspection-app"
-export ACR_NAME="geometricsicmsacr"  # Must be globally unique, lowercase alphanumeric only
-export DB_SERVER="cms-inspection-db-server"
+export APP_NAME="geometriceng-icms-inspection-app"
+export ACR_NAME="geometricsicmsacr28feb26"  # Must be globally unique, lowercase alphanumeric only
+export DB_SERVER="cms-inspection-flex-pg-db-server01"
 export DB_NAME="cms_inspection_db"
 export DB_ADMIN_USER="cms_inspection_dbadmin"
-export DB_ADMIN_PASSWORD="YOUR_SECURE_PASSWORD_HERE"  # Change this to a secure password
+export DB_ADMIN_PASSWORD="Simba_4ever"  # Change this to a secure password
 ```
 
 **IMPORTANT:** Change the values above to match your preferences, especially:
@@ -131,8 +131,8 @@ az acr create \
 {
   "adminUserEnabled": true,
   "creationDate": "...",
-  "loginServer": "geometricsicmsacr.azurecr.io",
-  "name": "geometricsicmsacr",
+  "loginServer": "geometricsicmsacr28feb26.azurecr.io",
+  "name": "geometricsicmsacr28feb26",
   "provisioningState": "Succeeded",
   "sku": {
     "name": "Basic"
@@ -212,7 +212,7 @@ Login Succeeded
 Build the combined nginx + Rails image using `Dockerfile.combined`:
 
 ```bash
-docker build -f Dockerfile.combined -t ${ACR_NAME}.azurecr.io/cms-inspection-app:latest .
+docker build -f Dockerfile.combined -t ${ACR_NAME}.azurecr.io/icms-inspection-app:latest .
 ```
 
 This will:
@@ -225,7 +225,7 @@ This will:
 ### 5.3 Push Image to ACR
 
 ```bash
-docker push ${ACR_NAME}.azurecr.io/cms-inspection-app:latest
+docker push ${ACR_NAME}.azurecr.io/icms-inspection-app:latest
 ```
 
 ### 5.4 Verify Image in Registry
@@ -238,7 +238,7 @@ az acr repository list --name $ACR_NAME --output table
 ```
 Result
 ---------------------
-cms-inspection-app
+icms-inspection-app
 ```
 
 ---
@@ -274,7 +274,7 @@ az webapp create \
   --resource-group $RESOURCE_GROUP \
   --plan ${APP_NAME}-plan \
   --name $APP_NAME \
-  --deployment-container-image-name ${ACR_NAME}.azurecr.io/cms-inspection-app:latest
+  --deployment-container-image-name ${ACR_NAME}.azurecr.io/icms-inspection-app:latest
 ```
 
 ---
@@ -287,7 +287,7 @@ az webapp create \
 az webapp config container set \
   --name $APP_NAME \
   --resource-group $RESOURCE_GROUP \
-  --docker-custom-image-name ${ACR_NAME}.azurecr.io/cms-inspection-app:latest \
+  --docker-custom-image-name ${ACR_NAME}.azurecr.io/icms-inspection-app:latest \
   --docker-registry-server-url https://${ACR_NAME}.azurecr.io \
   --docker-registry-server-user $ACR_USERNAME \
   --docker-registry-server-password $ACR_PASSWORD
@@ -424,7 +424,7 @@ az postgres flexible-server execute \
 az container create \
   --resource-group $RESOURCE_GROUP \
   --name migration-runner \
-  --image ${ACR_NAME}.azurecr.io/cms-inspection-app:latest \
+  --image ${ACR_NAME}.azurecr.io/icms-inspection-app:latest \
   --registry-login-server ${ACR_NAME}.azurecr.io \
   --registry-username $ACR_USERNAME \
   --registry-password $ACR_PASSWORD \
@@ -473,7 +473,7 @@ sleep 5
 az container create \
   --resource-group $RESOURCE_GROUP \
   --name admin-user-creator \
-  --image ${ACR_NAME}.azurecr.io/cms-inspection-app:latest \
+  --image ${ACR_NAME}.azurecr.io/icms-inspection-app:latest \
   --registry-login-server ${ACR_NAME}.azurecr.io \
   --registry-username $ACR_USERNAME \
   --registry-password $ACR_PASSWORD \
@@ -495,8 +495,8 @@ az container delete --resource-group $RESOURCE_GROUP --name admin-user-creator -
 ```
 
 **Created Users:**
-- **Admin User:** admin@cms.com / Admin123!
-- **Test User:** tester@cms.com / Tester123!
+- **Admin User:** admin@icms.com / Admin123!
+- **Test User:** tester@icms.com / Tester123!
 
 ### 12.7 Clean Up Migration Container
 
@@ -514,12 +514,12 @@ When you need to deploy updates:
 
 1. **Build new image:**
    ```bash
-   docker build -f Dockerfile.combined -t ${ACR_NAME}.azurecr.io/cms-inspection-app:latest .
+   docker build -f Dockerfile.combined -t ${ACR_NAME}.azurecr.io/icms-inspection-app:latest .
    ```
 
 2. **Push to registry:**
    ```bash
-   docker push ${ACR_NAME}.azurecr.io/cms-inspection-app:latest
+   docker push ${ACR_NAME}.azurecr.io/icms-inspection-app:latest
    ```
 
 3. **Restart web app:**

@@ -10,6 +10,15 @@ class ReportExport < ApplicationRecord
   
   scope :recent, -> { order(created_at: :desc) }
   scope :for_user, ->(user) { where(user: user) }
+
+  ERROR_FLAG_RULES = {
+    template_missing: /template not found|inspection_template\.docx|faa_weekly_template\.docx/i,
+    python_runtime_error: /python|traceback|docxtpl|jinja|open3|subprocess/i,
+    image_processing_error: /image|photo|inlineimage|caption/i,
+    data_serialization_error: /json|encode|decode|serialization/i,
+    filesystem_error: /permission denied|no such file|disk|storage|temp/i,
+    timeout_or_resource_error: /timeout|timed out|killed|out of memory|oom/i
+  }.freeze
   
   def broadcast_progress(progress_value, message = nil)
     update!(progress: progress_value)
@@ -29,15 +38,53 @@ class ReportExport < ApplicationRecord
     broadcast_progress(100, 'Export completed')
   end
   
-  def mark_failed!(error)
-    update!(status: 'failed', error_message: error)
+  def mark_failed!(error, stage: nil)
+    formatted_error = self.class.format_error_with_stage(error, stage)
+    flags = self.class.flags_for_error(error)
+
+    update!(status: 'failed', error_message: formatted_error)
     ActionCable.server.broadcast(
       "report_export:#{id}",
       {
         export_id: id,
         status: 'failed',
-        error: error
+        error: formatted_error,
+        error_stage: stage,
+        error_flags: flags
       }
     )
+  end
+
+  def failure_flags
+    return [] unless status == 'failed'
+
+    self.class.flags_for_error(error_message)
+  end
+
+  def failure_stage
+    self.class.stage_from_error_message(error_message)
+  end
+
+  def self.flags_for_error(error)
+    message = error.to_s
+    return ['unknown_failure'] if message.blank?
+
+    flags = ERROR_FLAG_RULES.each_with_object([]) do |(flag, regex), found|
+      found << flag.to_s if regex.match?(message)
+    end
+
+    flags << 'unknown_failure' if flags.empty?
+    flags
+  end
+
+  def self.format_error_with_stage(error, stage)
+    base = error.to_s
+    return base if stage.blank?
+    "[#{stage}] #{base}"
+  end
+
+  def self.stage_from_error_message(message)
+    match = message.to_s.match(/^\[(?<stage>[^\]]+)\]/)
+    match&.[](:stage)
   end
 end

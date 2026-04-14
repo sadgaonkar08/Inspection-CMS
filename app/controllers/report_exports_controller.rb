@@ -9,6 +9,8 @@ class ReportExportsController < ApplicationController
       status: @export.status,
       progress: @export.progress,
       error: @export.error_message,
+      error_flags: @export.failure_flags,
+      error_stage: @export.failure_stage,
       download_url: @export.status == 'completed' && @export.file.attached? ? download_report_report_export_path(@export.report, @export) : nil
     }
   end

@@ -46,9 +46,11 @@ class Report < ApplicationRecord
   accepts_nested_attributes_for :report_attachments, allow_destroy: true
 
   has_many :checklist_entries, dependent: :destroy
-  accepts_nested_attributes_for :checklist_entries, 
-                                allow_destroy: true, 
+  accepts_nested_attributes_for :checklist_entries,
+                                allow_destroy: true,
                                 reject_if: :all_blank
+
+  has_many :report_exports, dependent: :destroy
 
   # Callbacks
   before_validation :set_contract_day_if_blank

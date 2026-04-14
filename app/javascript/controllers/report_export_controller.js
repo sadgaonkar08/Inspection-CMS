@@ -65,7 +65,10 @@ export default class extends Controller {
         console.log("Progress update:", data)
         
         if (data.status === 'failed') {
-          this.showError(data.error || "Export failed")
+          this.showError(data.error || "Export failed", {
+            flags: data.error_flags || [],
+            stage: data.error_stage || null
+          })
         } else if (data.status === 'completed') {
           this.showComplete(exportId)
         } else {
@@ -106,11 +109,19 @@ export default class extends Controller {
     }
   }
 
-  showError(errorMessage) {
+  showError(errorMessage, options = {}) {
+    const flags = Array.isArray(options.flags) ? options.flags : []
+    const stage = options.stage
+
     this.progressTarget.classList.remove("d-none")
     this.progressBarTarget.style.width = "0%"
     this.progressBarTarget.classList.remove("progress-bar-animated")
-    this.messageTarget.textContent = `Error: ${errorMessage}`
+
+    const prettyFlags = flags.map((flag) => this.prettyFlag(flag)).join(", ")
+    const stagePrefix = stage ? `[${stage}] ` : ""
+    const flagSuffix = prettyFlags ? ` (${prettyFlags})` : ""
+
+    this.messageTarget.textContent = `Error: ${stagePrefix}${errorMessage}${flagSuffix}`
     this.messageTarget.classList.remove("text-muted")
     this.messageTarget.classList.add("text-danger")
     this.buttonTarget.classList.remove("d-none")
@@ -128,5 +139,19 @@ export default class extends Controller {
     if (this.subscription) {
       this.subscription.unsubscribe()
     }
+  }
+
+  prettyFlag(flag) {
+    const labels = {
+      template_missing: "Template Missing",
+      python_runtime_error: "Python Runtime Error",
+      image_processing_error: "Image Processing Error",
+      data_serialization_error: "Data Serialization Error",
+      filesystem_error: "Filesystem Error",
+      timeout_or_resource_error: "Timeout/Resource Error",
+      unknown_failure: "Unknown Failure"
+    }
+
+    return labels[flag] || String(flag)
   }
 }

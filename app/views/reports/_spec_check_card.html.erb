@@ -13,6 +13,7 @@
           <div class="gallery-card p-3 text-left"
                data-spec-code="<%= entry.spec_item.code %>"
                data-spec-id="<%= entry.spec_item.id %>"
+               data-entry-id="<%= entry.id %>"
                data-answers="<%= entry.checklist_answers.to_json %>">
 
             <div class="font-bold text-primary mb-1">
@@ -22,11 +23,19 @@
               <%= entry.spec_item.description %>
             </div>
 
-            <button type="button"
-                    class="btn-secondary w-full text-muted-sm"
-                    data-action="click->spec-drilldown#editSpec">
-              ✎ Edit Checklist
-            </button>
+            <div class="d-flex gap-2">
+              <button type="button"
+                      class="btn-secondary flex-1 text-muted-sm"
+                      data-action="click->spec-drilldown#editSpec">
+                ✎ Edit
+              </button>
+              <button type="button"
+                      class="btn-danger text-muted-sm"
+                      data-action="click->spec-drilldown#deleteSpec"
+                      aria-label="Delete checklist">
+                ✕
+              </button>
+            </div>
 
           </div>
         <% end %>

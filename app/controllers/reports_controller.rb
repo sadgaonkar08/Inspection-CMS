@@ -16,7 +16,8 @@ class ReportsController < ApplicationController
   ].freeze
   
   before_action :set_report, only: %i[ show show_section start_export ai_payload ]
-  before_action :set_report_for_editing, only: %i[ edit update destroy submit_for_qc ]
+  before_action :set_report_for_editing, only: %i[ edit update submit_for_qc ]
+  before_action :set_report_for_destroy, only: %i[ destroy ]
   before_action :set_report_for_ai_generation, only: %i[ generate_work_summary generate_commentary ai_status ]
   before_action :set_report_for_qc, only: %i[ approve request_revision ]
 
@@ -712,6 +713,10 @@ class ReportsController < ApplicationController
       @report.core_generations
              .flat_map(&:core_locations)
              .sort_by { |location| location.mark.to_s }
+    end
+
+    def set_report_for_destroy
+      @report = Report.find(params[:id])
     end
 
     def set_report_for_editing

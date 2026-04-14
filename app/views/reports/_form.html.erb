@@ -326,8 +326,9 @@
     <% project_for_cores = report.project || (@project if defined?(@project)) %>
     <% if project_for_cores %>
       <% asphalt_checklist_saved = report.flexible_pavement_checklist_saved? %>
-      <% selected_lot_id = report.core_generations.first&.asphalt_lot_id %>
-      <% linked_locations = report.core_generations.flat_map { |cg| cg.core_locations.includes(:asphalt_sublot, :asphalt_lane).order(:mark) } %>
+      <% latest_linked_generation = report.core_generations.order(created_at: :desc).first %>
+      <% selected_lot_id = latest_linked_generation&.asphalt_lot_id %>
+      <% linked_locations = latest_linked_generation ? latest_linked_generation.core_locations.includes(:asphalt_sublot, :asphalt_lane).order(:mark) : [] %>
       <% show_core_section = asphalt_checklist_saved %>
 
       <div class="mb-4 <%= show_core_section ? '' : 'd-none' %>"
@@ -384,23 +385,13 @@
                     <% end %>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label class="text-muted-sm">Core Generation</label>
-                  <select class="form-control" data-core-generation-selector-target="generationSelect" data-action="change->core-generation-selector#generationChanged" multiple size="5">
-                    <% if report.core_generations.any? %>
-                      <% report.core_generations.each do |cg| %>
-                        <option value="<%= cg.id %>" selected>Seed: <%= cg.seed %> - <%= cg.core_locations.count %> locations</option>
-                      <% end %>
-                    <% else %>
-                      <option value="" disabled>Select a lot first</option>
-                    <% end %>
-                  </select>
-                </div>
               </div>
 
+              <p class="text-muted-sm mb-3">Overview always shows the latest complete generation for this lot.</p>
+
               <div data-core-generation-selector-target="hiddenFields">
-                <% report.core_generations.each do |cg| %>
-                  <input type="hidden" name="report[core_generation_ids][]" value="<%= cg.id %>">
+                <% if latest_linked_generation %>
+                  <input type="hidden" name="report[core_generation_ids][]" value="<%= latest_linked_generation.id %>">
                 <% end %>
               </div>
 
@@ -415,9 +406,9 @@
                   </button>
                   <button type="button"
                           class="btn btn-primary btn-sm"
-                          data-core-generation-selector-target="exportCsvButton"
-                          data-action="click->core-generation-selector#exportPreviewCsv">
-                    Export to CSV
+                          data-core-generation-selector-target="exportXlsxButton"
+                          data-action="click->core-generation-selector#exportPreviewXlsx">
+                    Export to Excel
                   </button>
                 </div>
               </div>
@@ -550,7 +541,7 @@
                         class="btn btn-primary btn-sm"
                         data-core-generation-selector-target="generationCreateButton"
                         data-action="click->core-generation-selector#generateCoreLocations">
-                  Generate Locations
+                  Generate All Locations
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" data-action="click->core-generation-selector#closeInlinePanels">
                   Back to Overview

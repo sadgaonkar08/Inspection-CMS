@@ -8,9 +8,15 @@ class AsphaltLotsController < ApplicationController
 
   def show
     @all_lots = @project.asphalt_lots.order(:lot_number)
+    @generation_history = @asphalt_lot.core_generations
+                                 .includes(:core_locations)
+                                 .order(created_at: :desc)
+                                 .limit(20)
+
+    @latest_generation = @generation_history.first
     @latest_generation = @asphalt_lot.core_generations
                            .includes(core_locations: [:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane])
-                           .order(created_at: :desc).first
+                           .find(@latest_generation.id) if @latest_generation
 
     if @latest_generation
       @diagram_data = build_lot_diagram_data(@latest_generation)

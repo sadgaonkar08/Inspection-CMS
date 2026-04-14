@@ -886,6 +886,51 @@ body {
 .flex-2 { flex: 2; }
 .form-group label { font-weight: 600; margin-bottom: 0.5rem; font-size: var(--text-sm); color: var(--text-main); }
 
+.lock-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.lock-toggle:hover { border-color: var(--text-muted); background: var(--bg-hover); }
+.lock-toggle.is-locked {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.lock-toggle.is-locked:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.lock-toggle__icon { display: inline-flex; }
+
+.api-token-easter-egg-wrap { margin-top: 2px; line-height: 0; }
+.api-token-easter-egg-btn {
+  width: 6px !important;
+  height: 6px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: #000 !important;
+  cursor: default !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s !important;
+  display: inline-block !important;
+  pointer-events: none !important;
+}
+[data-theme="dark"] .api-token-easter-egg-btn {
+  background: #fff !important;
+  pointer-events: auto !important;
+}
+[data-theme="dark"] .api-token-easter-egg-btn:active { opacity: 0.7 !important; }
+
 /* Section headers (e.g. "3. Workforce & Equipment") */
 .form-section-title {
   font-size: var(--text-xl);
@@ -1158,7 +1203,7 @@ body {
   flex: 1; padding-right: 42px;
 }
 .weather-unit {
-  position: absolute; right: 10px; color: #6c757d; font-size: 0.8rem;
+  position: absolute; right: 10px; color: var(--text-muted); font-size: 0.8rem;
   pointer-events: none; font-weight: 600; white-space: nowrap;
 }
 
@@ -2332,6 +2377,9 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
   text-align: center;
   border-bottom: 2px solid var(--border-color);
   color: var(--text-main);
+}
+[data-theme="dark"] .equipment-category-header {
+  background: linear-gradient(135deg, #374151, #1f2937);
 }
 
 [data-theme="dark"] .equipment-category-header {

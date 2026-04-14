@@ -4,9 +4,11 @@ Rails.application.routes.draw do
     omniauth_callbacks: "users/omniauth_callbacks",
     registrations:      "users/registrations"
   }
+
+  resource :api_token, only: [:create]
   
   resources :reports do
-    resources :checklist_entries, only: [:create, :update] 
+    resources :checklist_entries, only: [:create, :update, :destroy]
     collection do
       get :import
       post :import_docx

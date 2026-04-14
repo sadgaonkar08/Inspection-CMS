@@ -2,6 +2,7 @@ class ReportExportJob < ApplicationJob
   queue_as :default
 
   def perform(export_id)
+    stage = 'initialize'
     export = ReportExport.find_by(id: export_id)
 
     unless export
@@ -13,13 +14,16 @@ class ReportExportJob < ApplicationJob
     
     begin
       # Update status to running
+      stage = 'starting'
       export.update!(status: 'running')
       export.broadcast_progress(5, 'Starting export...')
       
       # Stage 1: Prepare data (20%)
+      stage = 'prepare_data'
       export.broadcast_progress(20, 'Preparing report data...')
       
       # Stage 2: Generate document (60%)
+      stage = 'generate_document'
       export.broadcast_progress(40, 'Generating Word document...')
       
       # Generate using the Python docxtpl exporter
@@ -28,6 +32,7 @@ class ReportExportJob < ApplicationJob
       # PythonDocxExporter now raises an error if generation fails, so we can assume success here.
       
       # Stage 3: Save file (80%)
+      stage = 'save_document'
       export.broadcast_progress(80, 'Saving document...')
       
       # Attach the generated file to the export record
@@ -44,12 +49,13 @@ class ReportExportJob < ApplicationJob
       temp_file.unlink
       
       # Stage 4: Complete (100%)
+      stage = 'complete'
       export.mark_completed!
       
     rescue => e
       Rails.logger.error("ReportExportJob failed for export #{export_id}: #{e.message}")
       Rails.logger.error(e.backtrace.join("\n"))
-      export.mark_failed!(e.message) if export&.persisted?
+      export.mark_failed!(e.message, stage: stage) if export&.persisted?
     end
   end
 end

@@ -3,7 +3,6 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = [
     "lotSelect",
-    "generationSelect",
     "preview",
     "hiddenFields",
     "section",
@@ -37,6 +36,7 @@ export default class extends Controller {
     "lockSummary",
     "lockCoresButton",
     "exportCsvButton",
+    "exportXlsxButton",
     "manageLotLink"
   ]
 
@@ -47,14 +47,20 @@ export default class extends Controller {
 
   connect() {
     this.previewLocations = []
+    this.availableGenerations = []
+    this.currentGeneration = null
     this.currentLotLockState = null
+    this.lotGenerationDefaultsByLot = {}
+    this.laneDraftCounter = 0
 
     this.boundChecklistHandler = (event) => this.checklistsChanged(event)
     document.addEventListener("spec-checklists:changed", this.boundChecklistHandler)
 
     this.boundLotPanelClick = (event) => this.handleLotPanelClick(event)
+    this.boundLotPanelInput = (event) => this.handleLotPanelInput(event)
     if (this.hasLotPanelContentTarget) {
       this.lotPanelContentTarget.addEventListener("click", this.boundLotPanelClick)
+      this.lotPanelContentTarget.addEventListener("input", this.boundLotPanelInput)
     }
 
     this.updateVisibility()
@@ -75,6 +81,7 @@ export default class extends Controller {
 
     if (this.hasLotPanelContentTarget && this.boundLotPanelClick) {
       this.lotPanelContentTarget.removeEventListener("click", this.boundLotPanelClick)
+      this.lotPanelContentTarget.removeEventListener("input", this.boundLotPanelInput)
     }
   }
 
@@ -219,66 +226,44 @@ export default class extends Controller {
     } catch (e) {
       console.error("Error fetching core generations:", e)
       this.currentLotLockState = null
-      this.replaceGenerationOptions([
-        { value: "", label: "Error loading generations", disabled: true }
-      ])
-      this.clearPreview()
+      this.availableGenerations = []
+      this.currentGeneration = null
+      this.updateHiddenFields([])
+      this.renderMessage("Error loading generations.")
       this.updateLockControls()
       return []
     }
   }
 
   renderGenerations(generations) {
-    const selectedIds = this.selectedGenerationIdsFromHiddenFields()
+    this.availableGenerations = Array.isArray(generations) ? generations : []
 
-    if (generations.length === 0) {
+    if (this.availableGenerations.length === 0) {
+      this.currentGeneration = null
       this.previewLocations = []
-      this.replaceGenerationOptions([
-        { value: "", label: "No generations available", disabled: true }
-      ])
       this.renderMessage("No core locations have been generated for this lot yet.")
       this.updateHiddenFields([])
       this.updatePreviewActions()
       return
     }
 
-    const options = generations.map((gen) => ({
-      value: gen.id,
-      label: `Seed: ${gen.seed} — ${gen.location_count} locations (${gen.created_at})`,
-      locations: gen.locations,
-      selected: selectedIds.includes(String(gen.id))
-    }))
-
-    this.replaceGenerationOptions(options)
-
-    this.generationChanged()
+    this.selectGeneration(this.availableGenerations[0].id)
   }
 
   generationChanged() {
-    if (!this.hasGenerationSelectTarget || !this.hasPreviewTarget) return
+    if (!this.hasPreviewTarget) return
 
-    const selected = Array.from(this.generationSelectTarget.selectedOptions)
-      .filter((option) => option.value)
-
-    const generationIds = selected.map((option) => option.value)
-    this.updateHiddenFields(generationIds)
-
-    if (generationIds.length === 0) {
+    if (!this.currentGeneration) {
       this.previewLocations = []
       this.clearPreview()
+      this.updateHiddenFields([])
       this.updatePreviewActions()
       return
     }
 
-    const locations = selected.flatMap((option) => {
-      try {
-        return JSON.parse(option.dataset.locations || "[]")
-      } catch (_error) {
-        return []
-      }
-    })
-
+    const locations = Array.isArray(this.currentGeneration.locations) ? this.currentGeneration.locations : []
     this.previewLocations = locations
+    this.updateHiddenFields([this.currentGeneration.id])
     this.renderPreview(locations)
     this.updatePreviewActions()
   }
@@ -337,9 +322,9 @@ export default class extends Controller {
   }
 
   clearGenerations() {
-    this.replaceGenerationOptions([
-      { value: "", label: "Select a lot first", disabled: true }
-    ])
+    this.availableGenerations = []
+    this.currentGeneration = null
+    this.previewLocations = []
     this.clearPreview()
     this.updateHiddenFields([])
     this.updateVisibility()
@@ -462,6 +447,16 @@ export default class extends Controller {
     this.renderQuickStatus("Core location CSV downloaded.", "success")
   }
 
+  exportPreviewXlsx() {
+    const lotId = this.currentLotId()
+    const generationId = this.currentGeneration?.id
+    if (!lotId || !generationId) return
+
+    const url = `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/core_generations/${generationId}/export_xlsx`
+    window.location.href = url
+    this.renderQuickStatus("Generating Excel export...", "info")
+  }
+
   escapeCsv(value) {
     const stringValue = String(value ?? "")
     if (!/[",\n]/.test(stringValue)) return stringValue
@@ -477,34 +472,6 @@ export default class extends Controller {
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
-  }
-
-  replaceGenerationOptions(options) {
-    if (!this.hasGenerationSelectTarget) return
-
-    this.generationSelectTarget.replaceChildren()
-
-    options.forEach((item) => {
-      const option = document.createElement("option")
-      option.value = item.value
-      option.textContent = item.label
-      option.disabled = !!item.disabled
-      option.selected = !!item.selected
-
-      if (item.locations) {
-        option.dataset.locations = JSON.stringify(item.locations)
-      }
-
-      this.generationSelectTarget.appendChild(option)
-    })
-  }
-
-  selectedGenerationIdsFromHiddenFields() {
-    if (!this.hasHiddenFieldsTarget) return []
-
-    return Array.from(this.hiddenFieldsTarget.querySelectorAll('input[name="report[core_generation_ids][]"]'))
-      .map((input) => input.value)
-      .filter((id) => id)
   }
 
   buildCell(value, className = "") {
@@ -535,7 +502,7 @@ export default class extends Controller {
     }
 
     if (this.hasCoreTabTarget) {
-      const defaultTab = hasLots ? "overview" : "create"
+      const defaultTab = hasLots ? "overview" : "setup"
       this.showCoreTab(defaultTab)
     }
   }
@@ -582,7 +549,7 @@ export default class extends Controller {
   setGenerationButtonState(isLoading) {
     if (!this.hasGenerationCreateButtonTarget) return
     this.generationCreateButtonTarget.disabled = isLoading
-    this.generationCreateButtonTarget.textContent = isLoading ? "Generating..." : "Generate Locations"
+    this.generationCreateButtonTarget.textContent = isLoading ? "Generating..." : "Generate All Locations"
   }
 
   renderQuickStatus(message, state = "info") {
@@ -719,12 +686,9 @@ export default class extends Controller {
   }
 
   selectGeneration(generationId) {
-    if (!this.hasGenerationSelectTarget) return
-
     const generationValue = String(generationId)
-    Array.from(this.generationSelectTarget.options).forEach((option) => {
-      option.selected = option.value === generationValue
-    })
+    this.currentGeneration = this.availableGenerations.find((gen) => String(gen.id) === generationValue) || null
+    this.generationChanged()
   }
 
   toggleLotPanel() {
@@ -775,6 +739,8 @@ export default class extends Controller {
       this.manageLotLinkTarget.style.display = ""
     }
 
+    const lotDefaults = this.normalizedGenerationDefaults(lot.id)
+
     const sublotCards = (lot.sublots || []).length > 0
       ? lot.sublots.map((sublot) => this.sublotMarkup(sublot)).join("")
       : '<p class="text-muted">No sublots have been added yet.</p>'
@@ -795,9 +761,20 @@ export default class extends Controller {
             <label class="text-muted-sm">Lane Length (ft)</label>
             <input type="number" step="0.1" min="1" value="500" class="form-control" data-new-sublot-length>
           </div>
+        </div>
+
+        <div class="form-row mb-3">
           <div class="form-group">
             <label class="text-muted-sm">Lane Width (ft)</label>
             <input type="number" step="0.1" min="1" value="12" class="form-control" data-new-sublot-width>
+          </div>
+          <div class="form-group">
+            <label class="text-muted-sm">Mat Cores per Sublot</label>
+            <input type="number" min="1" value="${this.escapeHtml(String(lotDefaults.mat_cores_per_sublot))}" class="form-control" data-sublot-default="mat_cores_per_sublot">
+          </div>
+          <div class="form-group">
+            <label class="text-muted-sm">Joint Cores per Sublot</label>
+            <input type="number" min="0" value="${this.escapeHtml(String(lotDefaults.joint_cores_per_joint))}" class="form-control" data-sublot-default="joint_cores_per_joint">
           </div>
         </div>
 
@@ -815,6 +792,7 @@ export default class extends Controller {
     const laneCount = (sublot.lanes || []).length
     const totalFt = (sublot.lanes || []).reduce((sum, l) => sum + (l.length_ft || 0), 0).toFixed(1)
     const lockMode = sublot.core_lock_mode || "none"
+    const lockState = this.lockModeToToggleState(lockMode)
 
     const lockBadgeMap = {
       none: "",
@@ -824,7 +802,7 @@ export default class extends Controller {
     }
 
     return `
-      <details class="nested-entry-card card-accent--blue mb-3" data-sublot-card-id="${sublot.id}" open>
+      <details class="nested-entry-card card-accent--blue mb-3" data-sublot-card-id="${sublot.id}" data-current-lock-mode="${lockMode}" open>
         <summary class="d-flex justify-between align-center mb-2" style="cursor:pointer; list-style:none;">
           <h6 class="mb-0">
             <span style="display:inline-block;width:1em;font-size:0.75em;color:var(--text-muted);">&#9660;</span>
@@ -838,19 +816,20 @@ export default class extends Controller {
           </div>
         </summary>
 
-        <div class="mb-2">
-          <label class="text-muted-sm d-block mb-1">Lock Mode</label>
-          <div class="d-flex gap-1">
-            ${["none", "mat_only", "joint_only", "all"].map(mode => `
-              <button type="button"
-                      class="btn btn-sm ${lockMode === mode ? "btn-primary" : "btn-secondary"}"
-                      data-inline-action="set-lock-mode"
-                      data-sublot-id="${sublot.id}"
-                      data-lock-mode="${mode}">
-                ${({none: "None", mat_only: "Mat", joint_only: "Joint", all: "All"})[mode]}
-              </button>
-            `).join("")}
-          </div>
+        <div class="d-flex align-center gap-3 mb-2">
+          <label class="text-muted-sm mb-0">Lock Mode</label>
+          ${["mat", "joint"].map(lockType => `
+            <button type="button"
+                    class="lock-toggle ${lockState[lockType] ? "is-locked" : ""}"
+                    data-inline-action="toggle-lock-type"
+                    data-sublot-id="${sublot.id}"
+                    data-lock-type="${lockType}"
+                    aria-pressed="${lockState[lockType] ? "true" : "false"}"
+                    title="${lockState[lockType] ? "Locked" : "Unlocked"} — click to toggle">
+              <span class="lock-toggle__label">${lockType === "mat" ? "Mat" : "Joint"}</span>
+              <span class="lock-toggle__icon" aria-hidden="true">${this.lockIconSvg(lockState[lockType])}</span>
+            </button>
+          `).join("")}
         </div>
 
         <div class="d-flex align-center gap-2 mb-3">
@@ -858,34 +837,22 @@ export default class extends Controller {
           <button type="button" class="btn btn-danger btn-sm" data-inline-action="delete-sublot" data-sublot-id="${sublot.id}">Delete</button>
         </div>
 
-        ${laneRows.length > 0 ? `
-          <table class="modern-table table-compact mb-2">
-            <thead>
-              <tr>
-                <th>Lane</th>
-                <th>Length (ft)</th>
-                <th>Width (ft)</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${laneRows}
-            </tbody>
-          </table>
-        ` : '<p class="text-muted mb-2">No lanes defined for this sublot.</p>'}
+        <table class="modern-table table-compact mb-2" data-lane-table-id="${sublot.id}">
+          <thead>
+            <tr>
+              <th>Lane</th>
+              <th>Length (ft)</th>
+              <th>Width (ft)</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody data-lane-table-body-id="${sublot.id}">
+            ${laneRows.length > 0 ? laneRows : '<tr data-empty-lanes-row><td colspan="4" class="text-muted">No lanes defined for this sublot.</td></tr>'}
+          </tbody>
+        </table>
 
-        <div class="form-row" data-new-lane-row-id="${sublot.id}">
-          <div class="form-group">
-            <label class="text-muted-sm">Length (ft)</label>
-            <input type="number" class="form-control" step="0.1" min="1" value="500" data-new-lane-field="length_ft">
-          </div>
-          <div class="form-group">
-            <label class="text-muted-sm">Width (ft)</label>
-            <input type="number" class="form-control" step="0.1" min="1" value="12" data-new-lane-field="width_ft">
-          </div>
-          <div class="form-group d-flex align-end">
-            <button type="button" class="btn btn-secondary btn-sm" data-inline-action="add-lane" data-sublot-id="${sublot.id}">Add Lane</button>
-          </div>
+        <div class="d-flex align-center gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-inline-action="add-lane" data-sublot-id="${sublot.id}">Add Lane</button>
         </div>
       </details>
     `
@@ -893,7 +860,7 @@ export default class extends Controller {
 
   laneRowMarkup(sublot, lane) {
     return `
-      <tr data-lane-row-id="${lane.id}">
+      <tr data-lane-row-id="${lane.id}" data-lane-position="${lane.position}">
         <td class="font-bold">Lane ${lane.position}</td>
         <td>
           <input type="number" class="form-control form-control-sm" step="0.1" min="0.1" data-lane-field="length_ft" value="${this.escapeHtml(String(lane.length_ft ?? ""))}">
@@ -907,6 +874,78 @@ export default class extends Controller {
         </td>
       </tr>
     `
+  }
+
+  draftLaneRowMarkup(sublotId, draftId, lanePosition) {
+    return `
+      <tr data-lane-draft-row-id="${draftId}" data-lane-position="${lanePosition}">
+        <td class="font-bold">Lane ${lanePosition}</td>
+        <td>
+          <input type="number" class="form-control form-control-sm" step="0.1" min="0.1" data-lane-field="length_ft" value="">
+        </td>
+        <td>
+          <input type="number" class="form-control form-control-sm" step="0.1" min="0.1" data-lane-field="width_ft" value="">
+        </td>
+        <td>
+          <button type="button" class="btn btn-sm btn-primary" data-inline-action="create-lane" data-sublot-id="${sublotId}" data-draft-id="${draftId}">Save</button>
+          <button type="button" class="btn btn-sm btn-danger" data-inline-action="discard-draft-lane" data-sublot-id="${sublotId}" data-draft-id="${draftId}">Delete</button>
+        </td>
+      </tr>
+    `
+  }
+
+  lockIconSvg(isLocked) {
+    const shackle = isLocked
+      ? '<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>'
+      : '<path d="M7 11V7a5 5 0 0 1 9.9-1"></path>'
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>${shackle}</svg>`
+  }
+
+  lockModeToToggleState(lockMode) {
+    switch (lockMode) {
+      case "mat_only":
+        return { mat: true, joint: false }
+      case "joint_only":
+        return { mat: false, joint: true }
+      case "all":
+        return { mat: true, joint: true }
+      default:
+        return { mat: false, joint: false }
+    }
+  }
+
+  toggleStateToLockMode(lockState) {
+    if (lockState.mat && lockState.joint) return "all"
+    if (lockState.mat) return "mat_only"
+    if (lockState.joint) return "joint_only"
+    return "none"
+  }
+
+  generationDefaultsForLot(lotId) {
+    const key = String(lotId)
+    const defaults = this.lotGenerationDefaultsByLot[key] || {
+      mat_cores_per_sublot: "1",
+      joint_cores_per_joint: "1"
+    }
+
+    this.lotGenerationDefaultsByLot[key] = defaults
+    return defaults
+  }
+
+  normalizedGenerationDefaults(lotId) {
+    const defaults = this.generationDefaultsForLot(lotId)
+    const mat = Number.parseInt(defaults.mat_cores_per_sublot, 10)
+    const joint = Number.parseInt(defaults.joint_cores_per_joint, 10)
+
+    return {
+      mat_cores_per_sublot: Number.isInteger(mat) && mat > 0 ? String(mat) : "1",
+      joint_cores_per_joint: Number.isInteger(joint) && joint >= 0 ? String(joint) : "1"
+    }
+  }
+
+  isPositiveNumber(value) {
+    const numberValue = Number(value)
+    return Number.isFinite(numberValue) && numberValue > 0
   }
 
   optionsMarkupFromTarget(selectElement, selectedValue) {
@@ -944,11 +983,20 @@ export default class extends Controller {
       case "toggle-lock":
         await this.toggleSublotLock(actionButton)
         break
+      case "toggle-lock-type":
+        await this.toggleSublotLockType(actionButton)
+        break
       case "set-lock-mode":
         await this.setSublotLockMode(actionButton)
         break
       case "add-lane":
         await this.addLane(actionButton)
+        break
+      case "create-lane":
+        await this.createLaneFromDraft(actionButton)
+        break
+      case "discard-draft-lane":
+        this.discardDraftLane(actionButton)
         break
       case "save-lane":
         await this.saveLane(actionButton)
@@ -962,6 +1010,18 @@ export default class extends Controller {
       default:
         break
     }
+  }
+
+  handleLotPanelInput(event) {
+    const field = event.target.closest("[data-sublot-default]")
+    if (!field) return
+
+    const lotId = this.currentLotId()
+    if (!lotId) return
+
+    const defaults = this.generationDefaultsForLot(lotId)
+    defaults[field.dataset.sublotDefault] = field.value
+    this.lotGenerationDefaultsByLot[String(lotId)] = defaults
   }
 
   async saveLot(button) {
@@ -1156,18 +1216,76 @@ export default class extends Controller {
     })
   }
 
-  async addLane(button) {
+  async toggleSublotLockType(button) {
     const lotId = this.currentLotId()
     const sublotId = button.dataset.sublotId
-    if (!lotId || !sublotId) return
+    const lockType = button.dataset.lockType
+    if (!lotId || !sublotId || !lockType) return
 
-    const row = this.lotPanelContentTarget.querySelector(`[data-new-lane-row-id="${sublotId}"]`)
+    const sublotCard = this.lotPanelContentTarget.querySelector(`[data-sublot-card-id="${sublotId}"]`)
+    if (!sublotCard) return
+
+    const currentLockMode = sublotCard.dataset.currentLockMode || "none"
+    const lockState = this.lockModeToToggleState(currentLockMode)
+    if (!(lockType in lockState)) return
+
+    lockState[lockType] = !lockState[lockType]
+    const newLockMode = this.toggleStateToLockMode(lockState)
+
+    await this.withButtonLoading(button, "...", async () => {
+      await this.requestJson(
+        `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/asphalt_sublots/${sublotId}/toggle_core_lock`,
+        {
+          method: "PATCH",
+          body: { core_lock_mode: newLockMode }
+        }
+      )
+
+      this.renderLotPanelStatus(`Lock mode set to "${newLockMode}" for sublot.`, "success")
+      await this.fetchLotManagement()
+    })
+  }
+
+  async addLane(button) {
+    const sublotId = button.dataset.sublotId
+    if (!sublotId) return
+
+    const tbody = this.lotPanelContentTarget.querySelector(`[data-lane-table-body-id="${sublotId}"]`)
+    if (!tbody) return
+
+    const draftId = `draft-${sublotId}-${this.laneDraftCounter++}`
+
+    const existingPositions = Array.from(tbody.querySelectorAll("[data-lane-position]"))
+      .map((row) => Number(row.dataset.lanePosition || 0))
+      .filter((position) => Number.isFinite(position))
+
+    const nextPosition = (existingPositions.length > 0 ? Math.max(...existingPositions) : 0) + 1
+
+    const emptyRow = tbody.querySelector("[data-empty-lanes-row]")
+    if (emptyRow) emptyRow.remove()
+
+    tbody.insertAdjacentHTML("beforeend", this.draftLaneRowMarkup(sublotId, draftId, nextPosition))
+    this.renderLotPanelStatus("New lane row added. Enter length and width, then save.", "info")
+  }
+
+  async createLaneFromDraft(button) {
+    const lotId = this.currentLotId()
+    const sublotId = button.dataset.sublotId
+    const draftId = button.dataset.draftId
+    if (!lotId || !sublotId || !draftId) return
+
+    const row = this.lotPanelContentTarget.querySelector(`[data-lane-draft-row-id="${draftId}"]`)
     if (!row) return
 
-    const lengthFt = this.valueFrom(row, '[data-new-lane-field="length_ft"]')
-    const widthFt = this.valueFrom(row, '[data-new-lane-field="width_ft"]')
+    const lengthFt = this.valueFrom(row, '[data-lane-field="length_ft"]').trim()
+    const widthFt = this.valueFrom(row, '[data-lane-field="width_ft"]').trim()
 
-    await this.withButtonLoading(button, "Adding...", async () => {
+    if (!this.isPositiveNumber(lengthFt) || !this.isPositiveNumber(widthFt)) {
+      this.renderLotPanelStatus("Enter positive values for lane length and width before saving.", "error")
+      return
+    }
+
+    await this.withButtonLoading(button, "Saving...", async () => {
       await this.requestJson(
         `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/asphalt_sublots/${sublotId}/asphalt_lanes`,
         {
@@ -1184,6 +1302,24 @@ export default class extends Controller {
       this.renderLotPanelStatus("Lane added.", "success")
       await this.fetchLotManagement()
     })
+  }
+
+  discardDraftLane(button) {
+    const draftId = button.dataset.draftId
+    const sublotId = button.dataset.sublotId
+    if (!draftId || !sublotId) return
+
+    const row = this.lotPanelContentTarget.querySelector(`[data-lane-draft-row-id="${draftId}"]`)
+    if (!row) return
+
+    const tbody = row.closest("tbody")
+    row.remove()
+
+    if (!tbody) return
+    const remainingRows = tbody.querySelectorAll("tr")
+    if (remainingRows.length === 0) {
+      tbody.insertAdjacentHTML("beforeend", '<tr data-empty-lanes-row><td colspan="4" class="text-muted">No lanes defined for this sublot.</td></tr>')
+    }
   }
 
   async saveLane(button) {
@@ -1243,11 +1379,19 @@ export default class extends Controller {
     const sublotId = button.dataset.sublotId
     if (!lotId || !sublotId) return
 
+    const defaults = this.normalizedGenerationDefaults(lotId)
+
     await this.withButtonLoading(button, "Generating...", async () => {
       const data = await this.requestJson(
         `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/core_generations/create_for_sublot?sublot_id=${encodeURIComponent(sublotId)}`,
         {
-          method: "POST"
+          method: "POST",
+          body: {
+            core_generation: {
+              mat_cores_per_sublot: defaults.mat_cores_per_sublot,
+              joint_cores_per_joint: defaults.joint_cores_per_joint
+            }
+          }
         }
       )
 

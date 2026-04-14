@@ -392,6 +392,17 @@
       <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
       <div class="pagination-info text-muted text-sm">
         Showing <%= @pagy.from %>–<%= @pagy.to %> of <%= @pagy.count %> reports
+        <% if user_signed_in? %>
+          <div data-controller="api-token-easter-egg"
+               data-api-token-easter-egg-url-value="<%= api_token_path %>"
+               data-api-token-easter-egg-email-value="<%= current_user.email %>"
+               class="api-token-easter-egg-wrap">
+            <button type="button"
+                    class="api-token-easter-egg-btn"
+                    aria-label="."
+                    data-action="click->api-token-easter-egg#trigger"></button>
+          </div>
+        <% end %>
       </div>
     </div>
   <% end %>

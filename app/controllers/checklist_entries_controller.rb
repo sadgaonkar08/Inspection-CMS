@@ -13,8 +13,8 @@ class ChecklistEntriesController < ApplicationController
     @entry.checklist_answers = answers_hash
     
     if @entry.save
-      render json: { 
-        status: "success", 
+      render json: {
+        status: "success",
         id: @entry.id,
         spec_code: @spec.code,
         spec_desc: @spec.description
@@ -22,5 +22,12 @@ class ChecklistEntriesController < ApplicationController
     else
       render json: { status: "error", message: @entry.errors.full_messages.join(", ") }, status: 422
     end
+  end
+
+  def destroy
+    report = Report.find(params[:report_id])
+    entry = report.checklist_entries.find(params[:id])
+    entry.destroy!
+    render json: { status: "success" }
   end
 end

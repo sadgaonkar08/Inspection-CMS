@@ -88,6 +88,39 @@
       </div>
     </div>
 
+    <% if @generation_history.present? %>
+      <div class="mb-4">
+        <h4 class="mb-2">Core Generation History</h4>
+        <table class="modern-table table-compact">
+          <thead>
+            <tr>
+              <th>Seed</th>
+              <th>Generated</th>
+              <th>Cores</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @generation_history.each do |generation| %>
+              <tr>
+                <td class="code-font"><%= generation.seed %></td>
+                <td><%= generation.created_at.strftime("%b %d, %Y %H:%M") %></td>
+                <td><%= generation.core_locations.size %></td>
+                <td class="text-right">
+                  <%= link_to "View",
+                        project_asphalt_lot_core_generation_path(@project, @asphalt_lot, generation),
+                        class: "btn btn-secondary btn-sm" %>
+                  <%= link_to "Excel",
+                        export_xlsx_project_asphalt_lot_core_generation_path(@project, @asphalt_lot, generation),
+                        class: "btn btn-outline-primary btn-sm" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
     <% if @asphalt_lot.asphalt_sublots.any? %>
       <% @asphalt_lot.asphalt_sublots.order(:position).includes(:asphalt_lanes).each do |sublot| %>
         <div class="nested-entry-card card-accent--blue mb-3" data-controller="collapsible">

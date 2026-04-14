@@ -134,6 +134,55 @@ export default class extends Controller {
     this.modalTitleTarget.innerText = `Checklist: ${this.currentSpec.code}`;
   }
 
+  async deleteSpec(event) {
+    const card = event.target.closest(".gallery-card")
+    if (!card) return
+
+    const specCode = card.dataset.specCode || "this checklist"
+    if (!window.confirm(`Delete ${specCode}? Any answers for this checklist will be lost.`)) return
+
+    const entryId = card.dataset.entryId
+
+    if (this.reportIdValue && entryId) {
+      try {
+        const response = await fetch(`/reports/${this.reportIdValue}/checklist_entries/${entryId}`, {
+          method: "DELETE",
+          headers: {
+            "Accept": "application/json",
+            "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content
+          }
+        })
+        if (!response.ok) {
+          alert(`Could not delete checklist (HTTP ${response.status}).`)
+          return
+        }
+      } catch (e) {
+        alert("Network error while deleting checklist.")
+        return
+      }
+    }
+
+    card.remove()
+
+    const list = document.getElementById("active-checklists-list")
+    if (list && !list.querySelector(".gallery-card")) {
+      list.innerHTML = `
+        <div class="spec-empty-state">
+          <div class="spec-empty-icon">📋</div>
+          <div class="spec-empty-title">No spec checklists added yet</div>
+          <div class="spec-empty-subtitle">Add required inspection checklists for this report. You can edit them anytime.</div>
+          <button type="button"
+                  class="btn btn-primary"
+                  data-action="click->spec-drilldown#openModal">
+            + Add Spec Checklist
+          </button>
+        </div>
+      `
+    }
+
+    this.broadcastChecklistChange()
+  }
+
   editSpec(event) {
     // Handle editing an existing card
     const card = event.target.closest(".gallery-card");
@@ -623,22 +672,32 @@ export default class extends Controller {
         });
       }
 
+      const entryId = newRecordId ? "" : (data.id || "")
       const html = `
-        <div class="gallery-card p-3 text-left" 
+        <div class="gallery-card p-3 text-left"
              data-spec-code="${data.spec_code}"
-             data-spec-id="${data.id || this.currentSpec?.id || ''}" 
+             data-spec-id="${this.currentSpec?.id || ''}"
+             data-entry-id="${entryId}"
              data-answers='${JSON.stringify(newAnswers)}'>
-             
+
           ${hiddenFields}
-             
+
           <div class="font-bold text-primary mb-2">${data.spec_code}</div>
           <div class="text-muted-sm mb-2 clamp-2">${data.spec_desc}</div>
-          
-          <button type="button" 
-                  class="btn-secondary w-full text-muted-sm"
-                  data-action="click->spec-drilldown#editSpec">
-             ✎ Edit Checklist
-          </button>
+
+          <div class="d-flex gap-2">
+            <button type="button"
+                    class="btn-secondary flex-1 text-muted-sm"
+                    data-action="click->spec-drilldown#editSpec">
+               ✎ Edit
+            </button>
+            <button type="button"
+                    class="btn-danger text-muted-sm"
+                    data-action="click->spec-drilldown#deleteSpec"
+                    aria-label="Delete checklist">
+               ✕
+            </button>
+          </div>
         </div>
       `;
       list.insertAdjacentHTML("beforeend", html);

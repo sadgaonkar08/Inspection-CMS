@@ -11,7 +11,14 @@ class CoreLocationXlsxExporter
   def to_stream
     locations = @core_generation.core_locations
                   .includes(:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane)
-                  .order(:mark).to_a
+                  .to_a
+                  .sort_by do |loc|
+                    [
+                      loc.asphalt_sublot&.position || Float::INFINITY,
+                      loc.joint? ? 0 : 1,
+                      loc.mark.to_s
+                    ]
+                  end
     sublot_positions = locations.map { |loc| loc.asphalt_sublot&.position }.compact.uniq.sort
 
     package = Axlsx::Package.new
@@ -19,7 +26,7 @@ class CoreLocationXlsxExporter
     styles = workbook.styles
 
     mat_bg = "CCFFFF"
-    joint_bg = "FFFFCC"
+    joint_bg = "FFD9B3"
     dist_bg = "BFBFBF"
 
     header_style = styles.add_style(
@@ -99,6 +106,11 @@ class CoreLocationXlsxExporter
         end
       end
       sheet.column_widths 18, 10, 8, 16, 14, 18, 20, 18, 12, 12
+
+      [4, 5].each do |idx|
+        col = sheet.column_info[idx]
+        col.hidden = true if col
+      end
     end
 
     { stream: package.to_stream, filename: xlsx_filename(sublot_positions) }

@@ -69,7 +69,9 @@ class CoreGenerationsController < ApplicationController
       return
     end
 
-    @core_generation = @asphalt_lot.core_generations.build(generation_defaults_from_latest)
+    @core_generation = @asphalt_lot.core_generations.build(
+      generation_defaults_from_latest.merge(create_for_sublot_generation_params.to_h.compact_blank)
+    )
 
     if @core_generation.save
       begin
@@ -129,6 +131,10 @@ class CoreGenerationsController < ApplicationController
     @core_generation = @asphalt_lot.core_generations
                          .includes(core_locations: [:asphalt_lane, :asphalt_sublot, :left_lane, :right_lane])
                          .find(params[:id])
+    @recent_generations = @asphalt_lot.core_generations
+                                   .includes(:core_locations)
+                                   .order(created_at: :desc)
+                                   .limit(8)
     @sort_by_sublot = params[:sort] == "sublot"
 
     @core_locations = if @sort_by_sublot
@@ -223,6 +229,13 @@ class CoreGenerationsController < ApplicationController
     params.fetch(:core_generation, ActionController::Parameters.new).permit(
       :seed, :rounding_increment_ft, :mat_edge_buffer_ft,
       :lane_start_buffer_ft, :mat_cores_per_sublot, :joint_cores_per_joint
+    )
+  end
+
+  def create_for_sublot_generation_params
+    params.fetch(:core_generation, ActionController::Parameters.new).permit(
+      :mat_cores_per_sublot,
+      :joint_cores_per_joint
     )
   end
 

@@ -5,32 +5,41 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_ROOT"
 
-# Check if Redis is running
-if ! command -v redis-cli &> /dev/null; then
-    echo "Error: redis-cli not found. Is Redis installed?"
-    exit 1
-fi
-
 if ! command -v bundle &> /dev/null; then
     echo "Error: bundle not found. Is Bundler installed?"
     exit 1
 fi
 
-echo "Checking Redis status..."
-if redis-cli ping > /dev/null 2>&1; then
-    echo "Redis is already running."
+if [[ -n "${REDIS_URL:-}" ]]; then
+    echo "REDIS_URL detected. Using external Redis and skipping local Redis startup."
 else
-    echo "Redis is not running. Starting Redis..."
-    # Try to start as daemon first (if config allows), otherwise background it
-    if redis-server --daemonize yes 2>/dev/null; then
-        echo "Redis started (daemonized)."
-    else
-        echo "Could not daemonize, starting in background..."
-        redis-server &
+    if ! command -v redis-cli &> /dev/null; then
+        echo "Error: REDIS_URL is not set and redis-cli is not available."
+        echo "Set REDIS_URL for external Redis or install/start local Redis."
+        exit 1
     fi
-    
-    # Wait a moment for it to come up
-    sleep 1
+
+    echo "Checking local Redis status..."
+    if redis-cli ping > /dev/null 2>&1; then
+        echo "Local Redis is already running."
+    else
+        echo "Local Redis is not running. Starting Redis..."
+        if command -v redis-server &> /dev/null; then
+            # Try to start as daemon first (if config allows), otherwise background it.
+            if redis-server --daemonize yes 2>/dev/null; then
+                echo "Local Redis started (daemonized)."
+            else
+                echo "Could not daemonize local Redis, starting in background..."
+                redis-server &
+            fi
+        else
+            echo "Error: redis-server not found and REDIS_URL is not set."
+            exit 1
+        fi
+
+        # Wait a moment for local Redis to come up.
+        sleep 1
+    fi
 fi
 
 if pgrep -f "sidekiq" > /dev/null; then
@@ -40,8 +49,11 @@ fi
 
 echo "Starting Sidekiq..."
 mkdir -p "$APP_ROOT/tmp/pids"
+mkdir -p "$APP_ROOT/log"
 
 RAILS_ENV="${RAILS_ENV:-development}"
-nohup bundle exec sidekiq -e "$RAILS_ENV" -r "$APP_ROOT" > "$APP_ROOT/log/sidekiq.out" 2>&1 &
+SIDEKIQ_LOG_PATH="${SIDEKIQ_LOG_PATH:-$APP_ROOT/log/sidekiq.out}"
 
-echo "Sidekiq started (PID $!). Logs: log/sidekiq.log (stdout: log/sidekiq.out)"
+nohup bundle exec sidekiq -e "$RAILS_ENV" -r "$APP_ROOT" > "$SIDEKIQ_LOG_PATH" 2>&1 &
+
+echo "Sidekiq started (PID $!). Logs: $SIDEKIQ_LOG_PATH"

@@ -14,9 +14,9 @@
       <thead>
         <tr>
           <th>Spec</th>
-          <th class="text-right">Pass</th>
-          <th class="text-right">Fail</th>
-          <th class="text-right">Total</th>
+          <th>Pass</th>
+          <th>Fail</th>
+          <th>Total</th>
           <th class="text-right">Actions</th>
         </tr>
       </thead>
@@ -28,15 +28,15 @@
           <% next if total.zero? %>
           <tr>
             <td class="cell-primary"><%= spec %></td>
-            <td class="text-right"><span class="badge badge-success"><%= pass %></span></td>
-            <td class="text-right">
+            <td><span class="badge badge-success"><%= pass %></span></td>
+            <td>
               <% if fail_count.positive? %>
                 <span class="badge badge-danger"><%= fail_count %></span>
               <% else %>
                 <span class="text-muted">0</span>
               <% end %>
             </td>
-            <td class="text-right"><%= total %></td>
+            <td><%= total %></td>
             <td class="text-right">
               <%= link_to "View", project_lab_test_results_path(@project, spec_code: spec), class: "btn btn-secondary btn-sm" %>
             </td>

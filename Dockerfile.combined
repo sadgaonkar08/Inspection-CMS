@@ -56,9 +56,10 @@ RUN apt-get update -qq && \
 COPY --from=rails-build /usr/local/bundle /usr/local/bundle
 COPY --from=rails-build /rails /rails
 
-# Install Python dependencies for DOCX export
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
-    docxtpl python-docx Pillow
+# Install Python dependencies used by DOCX export and PDF extraction
+RUN python3 -m venv /rails/.venv && \
+    /rails/.venv/bin/pip install --upgrade pip && \
+    /rails/.venv/bin/pip install -r /rails/python/requirements.txt
 
 # Create rails user
 RUN useradd rails --create-home --shell /bin/bash && \

@@ -34,6 +34,16 @@
         <%= form.text_area :notes, class: "form-control", rows: 4 %>
       </div>
 
+      <% if @result.spec_code == "P-610" %>
+        <div class="form-group">
+          <div class="form-check">
+            <%= form.check_box :hes, class: "form-check-input" %>
+            <%= form.label :hes, "High-early-strength concrete (HES)", class: "form-check-label" %>
+          </div>
+          <small class="text-muted">Determines which tab this result exports to in the P-610 QAQC Summary.</small>
+        </div>
+      <% end %>
+
       <div class="card mb-3">
         <div class="card-header">Raw extracted data (read-only)</div>
         <div class="card-body">

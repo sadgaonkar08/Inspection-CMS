@@ -187,7 +187,7 @@
   </div>
 </div>
 
-<script>
+<%= javascript_tag nonce: true do %>
   (function() {
     var btn = document.getElementById('detect-project-location');
     if (!btn) return;
@@ -210,4 +210,4 @@
       );
     });
   })();
-</script>
+<% end %>

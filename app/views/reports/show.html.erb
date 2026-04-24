@@ -199,6 +199,14 @@
     </div>
   <% end %>
 
+  <%= turbo_frame_tag "report_section_lab_test_results",
+      src: section_report_path(@report, section: "lab_test_results"),
+      loading: :lazy do %>
+    <div class="report-section">
+      <p class="text-muted-sm">Loading concrete lab results...</p>
+    </div>
+  <% end %>
+
   <%= turbo_frame_tag "report_section_core_locations",
       src: section_report_path(@report, section: "core_locations"),
       loading: :lazy do %>

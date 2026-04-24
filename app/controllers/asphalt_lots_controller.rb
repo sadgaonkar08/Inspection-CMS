@@ -21,6 +21,8 @@ class AsphaltLotsController < ApplicationController
     if @latest_generation
       @diagram_data = build_lot_diagram_data(@latest_generation)
     end
+
+    group_lab_test_results_by_sublot!
   end
 
   def new
@@ -212,6 +214,40 @@ class AsphaltLotsController < ApplicationController
       all_locked: total_sublots.positive? && locked_sublots == total_sublots,
       any_locked: locked_sublots.positive?
     }
+  end
+
+  def group_lab_test_results_by_sublot!
+    results = @asphalt_lot.lab_test_results
+                          .includes(:lab_test_import)
+                          .order(Arel.sql("test_date DESC NULLS LAST, report_date DESC NULLS LAST, id DESC"))
+
+    sublots_by_key = @asphalt_lot.asphalt_sublots.index_by { |s| normalize_sublot_key(s.position) }
+
+    @lab_results_by_sublot_id = Hash.new { |h, k| h[k] = [] }
+    @unmatched_lab_results = []
+
+    results.each do |r|
+      key = normalize_sublot_key(r.sublot_number)
+      sublot = key.present? ? sublots_by_key[key] : nil
+      if sublot
+        @lab_results_by_sublot_id[sublot.id] << r
+      else
+        @unmatched_lab_results << r
+      end
+    end
+  end
+
+  def normalize_sublot_key(value)
+    return nil if value.nil?
+    str = value.to_s.strip
+    return nil if str.empty?
+    if (m = str.match(/(?:sublot|sl)[\s#_-]*(\d+)/i))
+      return m[1].sub(/\A0+(?=\d)/, '')
+    end
+    if (m = str.match(/(\d+)\z/))
+      return m[1].sub(/\A0+(?=\d)/, '')
+    end
+    str.sub(/\A0+(?=\d)/, '').downcase
   end
 
   def build_lot_diagram_data(generation)

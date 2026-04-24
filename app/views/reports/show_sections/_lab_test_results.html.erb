@@ -1,0 +1,62 @@
+<% p610 = @report.lab_test_results.select { |r| r.spec_code == "P-610" } %>
+<% if p610.any? %>
+  <% sorted = p610.sort_by { |r| [-(r.test_date&.to_time&.to_i || 0), -(r.report_date&.to_time&.to_i || 0), -r.id] } %>
+  <div class="report-section">
+    <h3>Concrete Lab Results (P-610)</h3>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Lab ID</th>
+          <th>Set</th>
+          <th>Sampled</th>
+          <th>Mix #</th>
+          <th class="text-right">Cylinders</th>
+          <th class="text-right">Avg Strength</th>
+          <th class="text-right">Specified</th>
+          <th class="text-center">Result</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% sorted.each do |r| %>
+          <% d = r.data || {} %>
+          <tr>
+            <td class="cell-primary"><%= d["lab_id_number"] %></td>
+            <td><%= d["set_number"] %></td>
+            <td><%= d["date_sampled"] %></td>
+            <td><%= d["mix_number"].presence || "—" %></td>
+            <td class="text-right"><%= d["num_tested"] %> / <%= d["num_cylinders"] %></td>
+            <td class="text-right">
+              <% if d["avg_strength_psi"].present? %>
+                <strong><%= number_with_delimiter(d["avg_strength_psi"].to_i) %> psi</strong>
+                <% if d["avg_strength_at_days"].present? %>
+                  <div class="text-muted small">
+                    at <%= d["avg_strength_at_days"] %> day<%= "s" if d["avg_strength_at_days"] != 1 %>
+                    <% if d["avg_strength_source"] == "computed_from_tested_cylinders" %>
+                      <span title="Computed from early-break cylinders; 28-day breaks still pending">*</span>
+                    <% end %>
+                  </div>
+                <% end %>
+              <% else %>
+                <span class="text-muted">—</span>
+              <% end %>
+            </td>
+            <td class="text-right">
+              <% if d["specified_strength_psi"].present? %>
+                <%= number_with_delimiter(d["specified_strength_psi"].to_i) %> psi
+              <% else %>
+                <span class="text-muted">—</span>
+              <% end %>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-<%= result_badge_class(r.result) %>"><%= result_label(r.result) %></span>
+            </td>
+            <td class="text-right">
+              <%= link_to "Edit", edit_project_lab_test_result_path(@report.project, r), class: "link-primary" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -17,7 +17,7 @@
           <input type="number" id="lanes_per_sublot" value="<%= @lanes_per_sublot %>" min="1" max="20" class="form-control">
         </div>
         <div class="form-group" style="align-self: flex-end;">
-          <button type="button" onclick="updateForms()" class="btn btn-secondary">Update Form</button>
+          <button type="button" data-bulk-action="update-forms" class="btn btn-secondary">Update Form</button>
         </div>
       </div>
     </div>
@@ -46,7 +46,7 @@
                 <input type="number" step="0.5" min="0" placeholder="0" class="form-control bulk-width-input" data-sublot-index="<%= i %>">
               </div>
               <div class="form-group" style="align-self: flex-end;">
-                <button type="button" onclick="bulkFillLanes(<%= i %>)" class="btn btn-secondary">Confirm</button>
+                <button type="button" data-bulk-action="bulk-fill" data-sublot-index="<%= i %>" class="btn btn-secondary">Confirm</button>
               </div>
             </div>
             <small class="text-muted">This will only fill empty fields, existing values will not be changed.</small>
@@ -72,7 +72,7 @@
                     <%= number_field_tag "sublots[#{i}][lanes][#{lane_idx}][width_ft]", nil, step: 0.5, min: 0, placeholder: "0", class: "form-control" %>
                   </td>
                   <td class="text-center">
-                    <button type="button" onclick="removeLane(this)" class="btn btn-danger btn-sm" title="Remove lane">X</button>
+                    <button type="button" data-bulk-action="remove-lane" class="btn btn-danger btn-sm" title="Remove lane">X</button>
                   </td>
                 </tr>
               <% end %>
@@ -80,7 +80,7 @@
           </table>
           <div class="d-flex justify-between align-center mt-3">
             <small class="text-muted">Leave length/width blank to skip a lane.</small>
-            <button type="button" onclick="addLane(<%= i %>)" class="btn btn-outline-primary btn-sm">+ Add Lane</button>
+            <button type="button" data-bulk-action="add-lane" data-sublot-index="<%= i %>" class="btn btn-outline-primary btn-sm">+ Add Lane</button>
           </div>
         </div>
       <% end %>
@@ -93,7 +93,7 @@
   <% end %>
 </div>
 
-<script>
+<%= javascript_tag nonce: true do %>
 function bulkFillLanes(sublotIndex) {
   const bulkLengthInput = document.querySelector(`.bulk-length-input[data-sublot-index="${sublotIndex}"]`);
   const bulkWidthInput = document.querySelector(`.bulk-width-input[data-sublot-index="${sublotIndex}"]`);
@@ -147,7 +147,7 @@ function addLane(sublotIndex) {
     <td class="font-bold lane-number">${currentLanes + 1}</td>
     <td><input type="number" name="sublots[${sublotIndex}][lanes][${newLaneIndex}][length_ft]" step="0.5" min="0" placeholder="0" class="form-control"></td>
     <td><input type="number" name="sublots[${sublotIndex}][lanes][${newLaneIndex}][width_ft]" step="0.5" min="0" placeholder="0" class="form-control"></td>
-    <td class="text-center"><button type="button" onclick="removeLane(this)" class="btn btn-danger btn-sm" title="Remove lane">X</button></td>
+    <td class="text-center"><button type="button" data-bulk-action="remove-lane" class="btn btn-danger btn-sm" title="Remove lane">X</button></td>
   `;
   tbody.appendChild(newRow);
   updateLaneNumbers(tbody);
@@ -165,4 +165,20 @@ function updateLaneNumbers(tbody) {
     if (widthInput) widthInput.name = `sublots[${sublotIndex}][lanes][${index}][width_ft]`;
   });
 }
-</script>
+
+document.addEventListener('click', function(e) {
+  const trigger = e.target.closest('[data-bulk-action]');
+  if (!trigger) return;
+  const action = trigger.dataset.bulkAction;
+  const sublotIndex = parseInt(trigger.dataset.sublotIndex, 10);
+  if (action === 'update-forms') {
+    updateForms();
+  } else if (action === 'bulk-fill') {
+    bulkFillLanes(sublotIndex);
+  } else if (action === 'add-lane') {
+    addLane(sublotIndex);
+  } else if (action === 'remove-lane') {
+    removeLane(trigger);
+  }
+});
+<% end %>

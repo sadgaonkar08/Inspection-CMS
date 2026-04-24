@@ -9,12 +9,19 @@ class LabTestResultsController < ApplicationController
     @result_filter = params[:result].presence
     @date_from = parse_date(params[:date_from])
     @date_to = parse_date(params[:date_to])
+    @lot_filter_enabled = asphalt_lot_filter_supported?(@spec_code)
+    lot_scope = available_lots_for(@spec_code)
+    @available_lot_options = lot_scope.pluck(:lot_number, :id)
+    @lot_filter = normalize_lot_filter(@spec_code, params[:lot], lot_scope)
 
-    @results = @project.lab_test_results
+    @results = filtered_results(
+                       spec_code: @spec_code,
+                       result: @result_filter,
+                       lot: @lot_filter,
+                       date_from: @date_from,
+                       date_to: @date_to
+                     )
                        .includes(:asphalt_lot, :report)
-                       .by_spec_code(@spec_code)
-                       .by_result(@result_filter)
-                       .by_date_range(@date_from, @date_to)
                        .order(test_date: :desc, id: :desc)
   end
 
@@ -35,8 +42,26 @@ class LabTestResultsController < ApplicationController
   end
 
   def export_csv
-    spec = params[:spec_code].presence || "P-401"
-    results = @project.lab_test_results.includes(:asphalt_lot, :report).by_spec_code(spec).order(test_date: :desc, id: :desc)
+    spec = params[:spec_code].presence
+    unless %w[P-401 P-403].include?(spec)
+      return render plain: "CSV export is available for P-401 and P-403. Use the Excel export for P-610.", status: :unprocessable_entity
+    end
+
+    lot_scope = available_lots_for(spec)
+    lot_filter = normalize_lot_filter(spec, params[:lot], lot_scope)
+    result_filter = params[:result].presence
+    date_from = parse_date(params[:date_from])
+    date_to = parse_date(params[:date_to])
+
+    results = filtered_results(
+                      spec_code: spec,
+                      result: result_filter,
+                      lot: lot_filter,
+                      date_from: date_from,
+                      date_to: date_to
+                    )
+                      .includes(:asphalt_lot, :report)
+                      .order(test_date: :desc, id: :desc)
 
     csv_string = CSV.generate do |csv|
       csv << csv_headers_for(spec)
@@ -46,6 +71,23 @@ class LabTestResultsController < ApplicationController
     send_data csv_string,
               filename: "lab_test_results_#{spec.downcase}_#{Date.current.iso8601}.csv",
               type: "text/csv"
+  end
+
+  def export_xlsx
+    spec = params[:spec_code].presence
+    unless spec == "P-610"
+      return render plain: "XLSX export is only available for P-610 results.", status: :unprocessable_entity
+    end
+
+    results = @project.lab_test_results
+                      .by_spec_code("P-610")
+                      .order(test_date: :desc, id: :desc)
+
+    package = P610QaqcXlsxExporter.new(results).build
+
+    send_data package.to_stream.read,
+              filename: "p610_qaqc_summary_#{Date.current.iso8601}.xlsx",
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   end
 
   private
@@ -59,7 +101,7 @@ class LabTestResultsController < ApplicationController
   end
 
   def result_params
-    params.require(:lab_test_result).permit(:sublot_number, :result, :notes, :test_date)
+    params.require(:lab_test_result).permit(:sublot_number, :result, :notes, :test_date, :hes)
   end
 
   def parse_date(value)
@@ -67,6 +109,33 @@ class LabTestResultsController < ApplicationController
     Date.parse(value.to_s)
   rescue ArgumentError
     nil
+  end
+
+  def filtered_results(spec_code:, result: nil, lot: nil, date_from: nil, date_to: nil)
+    @project.lab_test_results
+            .by_spec_code(spec_code)
+            .by_result(result)
+            .by_asphalt_lot(lot)
+            .by_date_range(date_from, date_to)
+  end
+
+  def available_lots_for(spec_code)
+    return AsphaltLot.none unless asphalt_lot_filter_supported?(spec_code)
+
+    @project.asphalt_lots.for_mix(spec_code).order(:lot_number, :id)
+  end
+
+  def normalize_lot_filter(spec_code, lot_param, scope = available_lots_for(spec_code))
+    return nil unless asphalt_lot_filter_supported?(spec_code)
+
+    lot_id = lot_param.presence
+    return nil if lot_id.blank?
+
+    scope.where(id: lot_id).pick(:id)
+  end
+
+  def asphalt_lot_filter_supported?(spec_code)
+    LabTestImport::ASPHALT_SPEC_CODES.include?(spec_code)
   end
 
   def csv_headers_for(spec_code)
@@ -79,20 +148,12 @@ class LabTestResultsController < ApplicationController
       ["Report Date", "Lot", "Sublot", "Core ID", "Core Type", "Thickness AR (in)",
        "Thickness Trimmed (in)", "Gmb", "Gmm", "Compaction (%)",
        "Required (%)", "ASTM", "Result"]
-    when "P-610"
-      ["Report Date", "Daily Report", "Lab ID", "Set", "Date Sampled", "Supplier", "Mix #",
-       "Cylinders Tested", "Cylinders Total",
-       "Avg Strength (psi)", "Avg Age (days)", "Avg Source",
-       "Specified (psi)", "Specified Age (days)", "Result"]
-    else
-      ["Report Date", "Spec", "Lot / Report", "Sublot", "Result"]
     end
   end
 
   def csv_row_for(spec_code, result)
     d = result.data || {}
     lot_label = result.asphalt_lot&.lot_number
-    report_label = result.report&.dir_number.presence || (result.report && "IDR ##{result.report_id}")
     case spec_code
     when "P-401"
       [result.report_date, result.test_date, lot_label, result.sublot_number,
@@ -104,14 +165,6 @@ class LabTestResultsController < ApplicationController
        d["thickness_as_received_in"], d["thickness_trimmed_in"],
        d["gmb"], d["gmm"], d["compaction_pct"],
        d["required_compaction_pct"], d["astm_standard"], result.result]
-    when "P-610"
-      [result.report_date, report_label, d["lab_id_number"], d["set_number"], d["date_sampled"],
-       d["supplier"], d["mix_number"],
-       d["num_tested"], d["num_cylinders"],
-       d["avg_strength_psi"], d["avg_strength_at_days"], d["avg_strength_source"],
-       d["specified_strength_psi"], d["specified_at_days"], result.result]
-    else
-      [result.report_date, result.spec_code, lot_label || report_label, result.sublot_number, result.result]
     end
   end
 end

@@ -97,6 +97,9 @@ body {
   font-size: var(--text-base);
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
 }
 .btn:active { transform: translateY(0); }
 .btn-sm { padding: 8px 16px; font-size: var(--text-sm); }
@@ -104,6 +107,7 @@ body {
   background: linear-gradient(180deg, #3b82f6, #2563eb);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
   font-weight: 600;
+  color: #fff;
 }
 .btn-primary:hover {
   background: linear-gradient(180deg, #60a5fa, #2563eb);
@@ -123,6 +127,14 @@ body {
   color: white;
   transform: translateY(-1px);
 }
+
+.btn-link {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-main);
+  text-decoration: underline;
+}
+.btn-link:hover { color: var(--primary); }
 
 /* Accent style for "Add" buttons (nested rows) */
 .btn-add {
@@ -944,12 +956,12 @@ body {
   color: var(--text-main);
   font-weight: 600;
 }
-.form-group input, .form-group select, .form-group textarea {
+.form-group input:not([type="submit"]):not([type="button"]), .form-group select, .form-group textarea {
   padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
   font-size: var(--text-md); background-color: var(--bg-input); color: var(--text-main);
   width: 100%; box-sizing: border-box; transition: all 0.2s ease;
 }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+.form-group input:not([type="submit"]):not([type="button"]):focus, .form-group select:focus, .form-group textarea:focus {
   border-color: var(--border-focus); outline: none;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
 }

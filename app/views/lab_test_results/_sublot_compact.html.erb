@@ -1,0 +1,65 @@
+<%#
+  Expects:
+    rows    — Array<LabTestResult>
+    project — Project
+    title   — optional String header (defaults to "Lab Test Results")
+%>
+<% if rows.present? %>
+  <div class="mt-3">
+    <h5 class="mb-2">
+      <%= local_assigns[:title].presence || "Lab Test Results" %>
+      <small class="text-muted">(<%= rows.size %>)</small>
+    </h5>
+    <table class="modern-table table-compact mb-0">
+      <thead>
+        <tr>
+          <th style="width: 70px;">Spec</th>
+          <th style="width: 110px;">Sublot</th>
+          <th style="width: 120px;">Test Date</th>
+          <th>Details</th>
+          <th class="text-center" style="width: 90px;">Result</th>
+          <th class="text-right" style="width: 80px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.each do |r| %>
+          <% d = r.data || {} %>
+          <tr>
+            <td><strong><%= r.spec_code %></strong></td>
+            <td><%= r.sublot_number.presence || "—" %></td>
+            <td><%= r.test_date&.strftime("%b %d, %Y") || "—" %></td>
+            <td>
+              <% case r.spec_code %>
+              <% when "P-401" %>
+                Air voids <%= d["air_voids_avg"] %>%
+                <% if d["air_voids_min_pct"].present? && d["air_voids_max_pct"].present? %>
+                  <span class="text-muted">(range <%= d["air_voids_min_pct"] %>–<%= d["air_voids_max_pct"] %>)</span>
+                <% end %>
+              <% when "P-403" %>
+                Core <%= d["core_id"] %>
+                <% if d["core_type"].present? %>(<%= d["core_type"] %>)<% end %>
+                — <%= d["compaction_pct"] %>% compaction
+                <% if d["required_compaction_pct"].present? %>
+                  <span class="text-muted">(req <%= d["required_compaction_pct"] %>%)</span>
+                <% end %>
+              <% when "P-610" %>
+                Set <%= d["set_number"] %>
+                <% if d["avg_strength_psi"].present? %>
+                  — <%= number_with_delimiter(d["avg_strength_psi"].to_i) %> psi
+                <% end %>
+              <% else %>
+                <%= r.lab_name %>
+              <% end %>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-<%= result_badge_class(r.result) %>"><%= result_label(r.result) %></span>
+            </td>
+            <td class="text-right">
+              <%= link_to "Edit", edit_project_lab_test_result_path(project, r), class: "link-primary" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

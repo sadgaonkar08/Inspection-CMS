@@ -51,6 +51,7 @@ class Report < ApplicationRecord
                                 reject_if: :all_blank
 
   has_many :report_exports, dependent: :destroy
+  has_many :lab_test_results, dependent: :nullify
 
   # Callbacks
   before_validation :set_contract_day_if_blank

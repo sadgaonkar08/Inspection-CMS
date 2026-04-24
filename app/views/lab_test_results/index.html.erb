@@ -3,15 +3,29 @@
     <h1>Lab Test Results</h1>
     <div>
       <%= link_to "Back to Project", project_path(@project, anchor: "lab-tests"), class: "btn btn-secondary" %>
-      <%= link_to "Export CSV", export_csv_project_lab_test_results_path(@project, spec_code: @spec_code || "P-401"),
-            class: "btn btn-outline-secondary" %>
+      <% if @spec_code == "P-610" %>
+        <%= link_to "Export Excel (QAQC Summary)",
+              export_xlsx_project_lab_test_results_path(@project, spec_code: "P-610"),
+              class: "btn btn-secondary" %>
+      <% elsif %w[P-401 P-403].include?(@spec_code) %>
+        <%= link_to "Export CSV",
+              export_csv_project_lab_test_results_path(
+                @project,
+                spec_code: @spec_code,
+                result: @result_filter,
+                lot: @lot_filter,
+                date_from: @date_from,
+                date_to: @date_to
+              ),
+              class: "btn btn-secondary" %>
+      <% end %>
       <%= link_to "Upload New Report", new_project_lab_test_import_path(@project), class: "btn btn-primary" %>
     </div>
   </div>
 
   <%= form_with url: project_lab_test_results_path(@project), method: :get, local: true, class: "card card-body mb-4" do %>
     <div class="form-row">
-      <div class="form-group col-md-3">
+      <div class="form-group col-md-2">
         <label>Spec</label>
         <%= select_tag :spec_code,
               options_for_select([["All specs", nil]] + LabTestImport::SPEC_CODES.map { |c| [c, c] }, @spec_code),
@@ -24,6 +38,16 @@
               class: "form-control" %>
       </div>
       <div class="form-group col-md-2">
+        <label>Lot</label>
+        <%= select_tag :lot,
+              options_for_select(
+                @lot_filter_enabled ? [["All lots", nil]] + @available_lot_options : [["Not available", nil]],
+                @lot_filter
+              ),
+              class: "form-control",
+              disabled: !@lot_filter_enabled %>
+      </div>
+      <div class="form-group col-md-2">
         <label>From</label>
         <%= date_field_tag :date_from, @date_from, class: "form-control" %>
       </div>
@@ -31,7 +55,7 @@
         <label>To</label>
         <%= date_field_tag :date_to, @date_to, class: "form-control" %>
       </div>
-      <div class="form-group col-md-3 align-self-end">
+      <div class="form-group col-md-2 align-self-end">
         <%= submit_tag "Apply", class: "btn btn-primary" %>
         <%= link_to "Clear", project_lab_test_results_path(@project), class: "btn btn-link" %>
       </div>

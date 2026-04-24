@@ -8,6 +8,7 @@ class ReportsController < ApplicationController
   SHOW_SECTIONS = %w[
     checklists
     qa_entries
+    lab_test_results
     core_locations
     workforce_equipment
     quantities
@@ -694,6 +695,8 @@ class ReportsController < ApplicationController
         [{ checklist_entries: :spec_item }]
       when "qa_entries"
         [:qa_entries]
+      when "lab_test_results"
+        [{ lab_test_results: :lab_test_import }]
       when "core_locations"
         [{ core_generations: [:asphalt_lot, { core_locations: [:asphalt_sublot, :asphalt_lane] }] }]
       when "workforce_equipment"

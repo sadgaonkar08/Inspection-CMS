@@ -73,6 +73,7 @@ Rails.application.routes.draw do
     resources :lab_test_results, only: [:index, :edit, :update, :destroy] do
       collection do
         get :export_csv
+        get :export_xlsx
       end
     end
   end
@@ -94,6 +95,20 @@ Rails.application.routes.draw do
         resources :bid_items, only: [] do
           member do
             get :checklist, to: "projects#bid_item_checklist"
+          end
+        end
+
+        resources :lab_test_imports, only: [:index, :create, :show, :destroy] do
+          member do
+            patch :approve
+            patch :reject
+          end
+        end
+
+        resources :lab_test_results, only: [:index, :show, :update, :destroy] do
+          collection do
+            get :export_csv
+            get :export_xlsx
           end
         end
       end

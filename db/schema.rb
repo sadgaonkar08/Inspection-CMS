@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_22_000004) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_24_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -297,6 +297,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_22_000004) do
     t.datetime "updated_at", null: false
     t.bigint "asphalt_lot_id"
     t.bigint "report_id"
+    t.boolean "hes", default: false, null: false
     t.index ["asphalt_lot_id"], name: "index_lab_test_results_on_asphalt_lot_id"
     t.index ["created_by_id"], name: "index_lab_test_results_on_created_by_id"
     t.index ["lab_test_import_id"], name: "index_lab_test_results_on_lab_test_import_id"

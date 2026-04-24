@@ -92,9 +92,17 @@ module ReportAi
         1) **Work Performed**
         2) **QA and Verification**
         3) **Non-Compliant Items**
-        4) **Delays and Constraints**
-        5) **Coordination and Access**
-        6) **Weather Impacts**
+        4) **Delays and Constraints** — only include if a delay materially
+           affected work (caused a stoppage, forced rework, changed sequence).
+           Do NOT include routine pauses like refueling, brief waits, or
+           normal shift logistics.
+        5) **Coordination and Access** — only include if coordination is
+           needed to explain how work was performed or why something happened.
+           Do NOT list routine escorts, site presence, or who was on site
+           unless it affected the work.
+        6) **Weather Impacts** — only include if weather actually disrupted
+           or altered work operations. Do NOT include weather facts when
+           conditions were normal and had no impact.
       - Concise bullet points — one key fact per line
       - Include which FAA spec items are in scope (P-401, P-603, P-620, etc.)
       - Structured facts only — no prose, no paragraphs
@@ -190,6 +198,26 @@ module ReportAi
         specification or design requirement, or simply state the fact without
         a quality judgment.
 
+      STRUCTURE:
+      - Do NOT mirror the outline's section headings. The outline is organized
+        into categories (Work Performed, Delays, Coordination, Weather) for
+        extraction — the commentary should NOT reproduce that structure.
+      - Write a flowing narrative organized by work activity, not by outline
+        category. Weave relevant coordination or timing details into the
+        description of the work they relate to.
+      - If a delay or constraint materially affected work (caused a stoppage,
+        forced a schedule change, required rework), mention it in context.
+        Do NOT write a standalone "delays and constraints" paragraph for
+        routine or trivial interruptions (brief refills, short waits, normal
+        sequencing).
+      - Do NOT write a weather or surface conditions paragraph. Weather is
+        captured in a separate section of the report. Only mention weather
+        if it directly impacted work operations (e.g., rain stopped paving).
+      - Do NOT write a "coordination and access" paragraph that simply lists
+        who was on site or who escorted whom. Only mention coordination when
+        it is relevant to understanding the work narrative (e.g., a delay
+        caused by waiting for escort).
+
       DO NOT INCLUDE:
       - Crew counts, workforce breakdowns, or staffing details
         (these are captured in a separate section of the report)
@@ -199,6 +227,11 @@ module ReportAi
         ("Traffic control was marked as compliant" — this is already on the form)
       - Generic compliance language ("all safety protocols were observed")
       - Information not present in the inspector's notes or the outline
+      - Standalone weather, temperature, wind, or surface condition summaries
+      - Standalone "coordination and access" sections
+      - Filler sentences about the absence of delays, issues, or disruptions
+        ("No other delays were noted", "No weather-related disruptions were
+        observed")
 
       REFERENCE EXAMPLES — use these as models for voice and detail level:
 
@@ -251,6 +284,10 @@ module ReportAi
       Write the commentary. Stay faithful to the inspector's notes — expand on them
       with technical specificity where the outline provides detail, but do not add
       information that isn't supported by the notes or the outline.
+
+      Do NOT write standalone sections for weather, coordination, or delays.
+      Do NOT pad with filler about the absence of issues. If the outline has
+      few facts, write a short commentary — brevity is correct.
     PROMPT
 
     # ─── Weekly Report Prompt Templates ────────────────────────────────

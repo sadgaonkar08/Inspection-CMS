@@ -1,0 +1,48 @@
+<thead>
+  <tr>
+    <th>Report Date</th>
+    <th>Test Date</th>
+    <th>Lot</th>
+    <th>Sublot</th>
+    <th class="text-right">Tonnage Point (T)</th>
+    <th class="text-right">Oven Time (hr)</th>
+    <th class="text-right">Gyrations</th>
+    <th class="text-right">Gmb (avg)</th>
+    <th class="text-right">Gmm (avg)</th>
+    <th class="text-right">Air Voids (avg %)</th>
+    <th class="text-center">Spec Range</th>
+    <th class="text-center">Result</th>
+    <th class="text-right">Actions</th>
+  </tr>
+</thead>
+<tbody>
+  <% rows.each do |r| %>
+    <% d = r.data || {} %>
+    <tr>
+      <td><%= r.report_date %></td>
+      <td><%= r.test_date %></td>
+      <td>
+        <% if r.asphalt_lot %>
+          <%= link_to r.asphalt_lot.lot_number, project_asphalt_lot_path(project, r.asphalt_lot), class: "link-primary" %>
+        <% else %>
+          <span class="text-muted">—</span>
+        <% end %>
+      </td>
+      <td class="cell-primary"><%= r.sublot_number %></td>
+      <td class="text-right"><%= d["tonnage_point_tons"] %></td>
+      <td class="text-right"><%= d["time_in_oven_hrs"] %></td>
+      <td class="text-right"><%= d["gyrations"] %></td>
+      <td class="text-right"><%= d["gmb_avg"] %></td>
+      <td class="text-right"><%= d["gmm_avg"] %></td>
+      <td class="text-right"><%= d["air_voids_avg"] %>%</td>
+      <td class="text-center"><%= d["air_voids_min_pct"] %>–<%= d["air_voids_max_pct"] %>%</td>
+      <td class="text-center"><span class="badge badge-<%= result_badge_class(r.result) %>"><%= result_label(r.result) %></span></td>
+      <td class="text-right">
+        <%= link_to "Edit", edit_project_lab_test_result_path(project, r), class: "link-primary mr-3" %>
+        <%= link_to "Delete", project_lab_test_result_path(project, r),
+              class: "btn-clear inline-danger p-0",
+              data: { turbo_method: :delete, turbo_confirm: "Delete #{r.sublot_number} result?" } %>
+      </td>
+    </tr>
+  <% end %>
+</tbody>

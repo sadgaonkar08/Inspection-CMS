@@ -1,0 +1,50 @@
+<thead>
+  <tr>
+    <th>Report Date</th>
+    <th>Lot</th>
+    <th>Sublot</th>
+    <th>Core ID</th>
+    <th>Core Type</th>
+    <th class="text-right">Thickness as&nbsp;Received (in)</th>
+    <th class="text-right">Thickness Trimmed (in)</th>
+    <th class="text-right">Gmb</th>
+    <th class="text-right">Gmm</th>
+    <th class="text-right">Compaction (%)</th>
+    <th class="text-right">Required (%)</th>
+    <th class="text-center">ASTM</th>
+    <th class="text-center">Result</th>
+    <th class="text-right">Actions</th>
+  </tr>
+</thead>
+<tbody>
+  <% rows.each do |r| %>
+    <% d = r.data || {} %>
+    <tr>
+      <td><%= r.report_date %></td>
+      <td>
+        <% if r.asphalt_lot %>
+          <%= link_to r.asphalt_lot.lot_number, project_asphalt_lot_path(project, r.asphalt_lot), class: "link-primary" %>
+        <% else %>
+          <span class="text-muted">—</span>
+        <% end %>
+      </td>
+      <td class="cell-primary"><%= r.sublot_number %></td>
+      <td><%= d["core_id"] %></td>
+      <td><%= d["core_type"]&.capitalize %></td>
+      <td class="text-right"><%= d["thickness_as_received_in"] %></td>
+      <td class="text-right"><%= d["thickness_trimmed_in"] %></td>
+      <td class="text-right"><%= d["gmb"] %></td>
+      <td class="text-right"><%= d["gmm"] %></td>
+      <td class="text-right"><%= d["compaction_pct"] %>%</td>
+      <td class="text-right">≥&nbsp;<%= d["required_compaction_pct"] %>%</td>
+      <td class="text-center"><%= d["astm_standard"] %></td>
+      <td class="text-center"><span class="badge badge-<%= result_badge_class(r.result) %>"><%= result_label(r.result) %></span></td>
+      <td class="text-right">
+        <%= link_to "Edit", edit_project_lab_test_result_path(project, r), class: "link-primary mr-3" %>
+        <%= link_to "Delete", project_lab_test_result_path(project, r),
+              class: "btn-clear inline-danger p-0",
+              data: { turbo_method: :delete, turbo_confirm: "Delete core #{d['core_id']} (#{r.sublot_number})?" } %>
+      </td>
+    </tr>
+  <% end %>
+</tbody>

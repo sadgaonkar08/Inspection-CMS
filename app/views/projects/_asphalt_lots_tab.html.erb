@@ -12,6 +12,7 @@
             <th>Lot #</th>
             <th>Plant</th>
             <th>Mix Type</th>
+            <th>Total Tonnage</th>
             <th>Paving Date</th>
             <th>Sublots</th>
             <th>Generations</th>
@@ -24,6 +25,7 @@
               <td class="cell-primary"><%= lot.lot_number %></td>
               <td><%= lot.plant.presence || "-" %></td>
               <td><%= lot.mix_type.presence || "-" %></td>
+              <td><%= lot.total_tonnage.present? ? number_with_precision(lot.total_tonnage, precision: 2, strip_insignificant_zeros: true, delimiter: ',') : "-" %></td>
               <td><%= lot.paving_date&.strftime("%b %d, %Y") || "-" %></td>
               <td><%= lot.asphalt_sublots.size %></td>
               <td><%= lot.core_generations.size %></td>

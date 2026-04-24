@@ -42,7 +42,8 @@ export default class extends Controller {
 
   static values = {
     projectId: Number,
-    asphaltChecklistSelected: Boolean
+    asphaltChecklistSelected: Boolean,
+    initialGenerationId: Number
   }
 
   connect() {
@@ -52,6 +53,7 @@ export default class extends Controller {
     this.currentLotLockState = null
     this.lotGenerationDefaultsByLot = {}
     this.laneDraftCounter = 0
+    this.linkedGenerations = this.readLinkedGenerationsFromDom()
 
     this.boundChecklistHandler = (event) => this.checklistsChanged(event)
     document.addEventListener("spec-checklists:changed", this.boundChecklistHandler)
@@ -65,12 +67,14 @@ export default class extends Controller {
 
     this.updateVisibility()
 
-    this.selectFirstLotIfAvailable()
-
     const lotId = this.currentLotId()
     if (lotId) {
-      this.fetchGenerations(lotId)
+      this.fetchGenerations(lotId, this.preferredGenerationIdForLot(lotId))
       this.ensureSelectedLotStatusMessage()
+    } else if (this.hasSelectableLots()) {
+      this.renderMessage("Select a lot to preview core locations.")
+      this.renderQuickStatus("Select a lot to preview or generate core locations.", "info")
+      this.generationChanged()
     } else {
       this.generationChanged()
     }
@@ -136,17 +140,16 @@ export default class extends Controller {
       return
     }
 
-    this.updateHiddenFields([])
     this.clearPreview()
     this.renderGenerationStatus("")
     this.renderLotPanelStatus("")
 
     const label = this.selectedLotOptionText()
     if (label) {
-      this.renderQuickStatus(`${label} selected. Generate core locations next.`, "success")
+      this.renderQuickStatus(`${label} selected. Previewing latest core locations for this lot.`, "success")
     }
 
-    this.fetchGenerations(lotId)
+    this.fetchGenerations(lotId, this.preferredGenerationIdForLot(lotId))
   }
 
   async createLotAndSublots() {
@@ -210,7 +213,7 @@ export default class extends Controller {
     }
   }
 
-  async fetchGenerations(lotId) {
+  async fetchGenerations(lotId, preferredGenerationId = null) {
     try {
       const url = `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/core_generations_json`
       const response = await fetch(url, {
@@ -221,33 +224,32 @@ export default class extends Controller {
 
       const data = await response.json()
       this.currentLotLockState = data.lock_state || null
-      this.renderGenerations(data.generations)
+      this.renderGenerations(data.generations, preferredGenerationId)
       return data.generations
     } catch (e) {
       console.error("Error fetching core generations:", e)
       this.currentLotLockState = null
       this.availableGenerations = []
       this.currentGeneration = null
-      this.updateHiddenFields([])
       this.renderMessage("Error loading generations.")
       this.updateLockControls()
       return []
     }
   }
 
-  renderGenerations(generations) {
+  renderGenerations(generations, preferredGenerationId = null) {
     this.availableGenerations = Array.isArray(generations) ? generations : []
 
     if (this.availableGenerations.length === 0) {
       this.currentGeneration = null
       this.previewLocations = []
       this.renderMessage("No core locations have been generated for this lot yet.")
-      this.updateHiddenFields([])
       this.updatePreviewActions()
       return
     }
 
-    this.selectGeneration(this.availableGenerations[0].id)
+    const generationId = this.findGenerationIdToPreview(preferredGenerationId)
+    this.selectGeneration(generationId)
   }
 
   generationChanged() {
@@ -256,14 +258,12 @@ export default class extends Controller {
     if (!this.currentGeneration) {
       this.previewLocations = []
       this.clearPreview()
-      this.updateHiddenFields([])
       this.updatePreviewActions()
       return
     }
 
     const locations = Array.isArray(this.currentGeneration.locations) ? this.currentGeneration.locations : []
     this.previewLocations = locations
-    this.updateHiddenFields([this.currentGeneration.id])
     this.renderPreview(locations)
     this.updatePreviewActions()
   }
@@ -306,17 +306,20 @@ export default class extends Controller {
     this.updatePreviewActions()
   }
 
-  updateHiddenFields(generationIds = []) {
+  updateHiddenFields() {
     if (!this.hasHiddenFieldsTarget) return
 
     const container = this.hiddenFieldsTarget
     container.replaceChildren()
 
-    generationIds.forEach((genId) => {
+    this.linkedGenerations.forEach((generation) => {
       const input = document.createElement("input")
       input.type = "hidden"
       input.name = "report[core_generation_ids][]"
-      input.value = genId
+      input.value = generation.id
+      if (generation.lotId) {
+        input.dataset.lotId = generation.lotId
+      }
       container.appendChild(input)
     })
   }
@@ -326,7 +329,6 @@ export default class extends Controller {
     this.currentGeneration = null
     this.previewLocations = []
     this.clearPreview()
-    this.updateHiddenFields([])
     this.updateVisibility()
   }
 
@@ -669,9 +671,10 @@ export default class extends Controller {
       )
 
       const generation = data.generation
-      await this.fetchGenerations(lotId)
+      await this.fetchGenerations(lotId, generation?.id)
       if (generation?.id) {
         this.selectGeneration(generation.id)
+        this.attachGenerationToReport(generation.id, lotId)
         this.generationChanged()
       }
 
@@ -1039,6 +1042,7 @@ export default class extends Controller {
         contractor: this.valueFrom(root, '[data-lot-field="contractor"]'),
         mix_design: this.valueFrom(root, '[data-lot-field="mix_design"]'),
         pg: this.valueFrom(root, '[data-lot-field="pg"]'),
+        total_tonnage: this.valueFrom(root, '[data-lot-field="total_tonnage"]'),
         paving_date: this.valueFrom(root, '[data-lot-field="paving_date"]'),
         description: this.valueFrom(root, '[data-lot-field="description"]')
       }
@@ -1068,6 +1072,7 @@ export default class extends Controller {
         expectNoContent: true
       })
 
+      this.removeLinkedGenerationsForLot(lotId)
       this.removeLotOption(lotId)
       this.renderLotPanelStatus("Lot deleted.", "success")
       this.renderQuickStatus("Lot deleted.", "success")
@@ -1395,9 +1400,10 @@ export default class extends Controller {
         }
       )
 
-      await this.fetchGenerations(lotId)
+      await this.fetchGenerations(lotId, data.generation?.id)
       if (data.generation?.id) {
         this.selectGeneration(data.generation.id)
+        this.attachGenerationToReport(data.generation.id, lotId)
         this.generationChanged()
       }
 
@@ -1451,6 +1457,57 @@ export default class extends Controller {
     return this.lotSelectTarget.value
   }
 
+  readLinkedGenerationsFromDom() {
+    if (!this.hasHiddenFieldsTarget) return []
+
+    return Array.from(this.hiddenFieldsTarget.querySelectorAll('input[name="report[core_generation_ids][]"]'))
+      .map((input) => ({
+        id: String(input.value || "").trim(),
+        lotId: String(input.dataset.lotId || "").trim()
+      }))
+      .filter((generation) => generation.id.length > 0)
+  }
+
+  preferredGenerationIdForLot(lotId) {
+    if (!lotId) return this.hasInitialGenerationIdValue ? this.initialGenerationIdValue : null
+
+    const linkedGeneration = this.linkedGenerations.find((generation) => String(generation.lotId) === String(lotId))
+    if (linkedGeneration) return linkedGeneration.id
+
+    return this.hasInitialGenerationIdValue ? this.initialGenerationIdValue : null
+  }
+
+  findGenerationIdToPreview(preferredGenerationId = null) {
+    if (preferredGenerationId) {
+      const preferred = this.availableGenerations.find((generation) => String(generation.id) === String(preferredGenerationId))
+      if (preferred) return preferred.id
+    }
+
+    return this.availableGenerations[0]?.id || null
+  }
+
+  attachGenerationToReport(generationId, lotId) {
+    const normalizedGenerationId = String(generationId || "").trim()
+    const normalizedLotId = String(lotId || "").trim()
+    if (!normalizedGenerationId) return
+
+    this.linkedGenerations = this.linkedGenerations.filter((generation) => {
+      if (!normalizedLotId) return generation.id !== normalizedGenerationId
+      return String(generation.lotId) !== normalizedLotId
+    })
+
+    this.linkedGenerations.unshift({ id: normalizedGenerationId, lotId: normalizedLotId })
+    this.updateHiddenFields()
+  }
+
+  removeLinkedGenerationsForLot(lotId) {
+    const normalizedLotId = String(lotId || "").trim()
+    if (!normalizedLotId) return
+
+    this.linkedGenerations = this.linkedGenerations.filter((generation) => String(generation.lotId) !== normalizedLotId)
+    this.updateHiddenFields()
+  }
+
   selectFirstLotIfAvailable() {
     if (!this.hasLotSelectTarget || this.currentLotId()) return this.currentLotId()
 
@@ -1473,7 +1530,7 @@ export default class extends Controller {
 
     const label = this.selectedLotOptionText()
     if (label) {
-      this.renderQuickStatus(`${label} selected. Generate core locations next.`, "info")
+      this.renderQuickStatus(`${label} selected. Previewing latest core locations for this lot.`, "info")
     }
   }
 

@@ -1,0 +1,55 @@
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>Lab Test Results</h1>
+    <div>
+      <%= link_to "Back to Project", project_path(@project, anchor: "lab-tests"), class: "btn btn-secondary" %>
+      <%= link_to "Export CSV", export_csv_project_lab_test_results_path(@project, spec_code: @spec_code || "P-401"),
+            class: "btn btn-outline-secondary" %>
+      <%= link_to "Upload New Report", new_project_lab_test_import_path(@project), class: "btn btn-primary" %>
+    </div>
+  </div>
+
+  <%= form_with url: project_lab_test_results_path(@project), method: :get, local: true, class: "card card-body mb-4" do %>
+    <div class="form-row">
+      <div class="form-group col-md-3">
+        <label>Spec</label>
+        <%= select_tag :spec_code,
+              options_for_select([["All specs", nil]] + LabTestImport::SPEC_CODES.map { |c| [c, c] }, @spec_code),
+              class: "form-control" %>
+      </div>
+      <div class="form-group col-md-2">
+        <label>Result</label>
+        <%= select_tag :result,
+              options_for_select([["All", nil], ["Pass", "pass"], ["Fail", "fail"]], @result_filter),
+              class: "form-control" %>
+      </div>
+      <div class="form-group col-md-2">
+        <label>From</label>
+        <%= date_field_tag :date_from, @date_from, class: "form-control" %>
+      </div>
+      <div class="form-group col-md-2">
+        <label>To</label>
+        <%= date_field_tag :date_to, @date_to, class: "form-control" %>
+      </div>
+      <div class="form-group col-md-3 align-self-end">
+        <%= submit_tag "Apply", class: "btn btn-primary" %>
+        <%= link_to "Clear", project_lab_test_results_path(@project), class: "btn btn-link" %>
+      </div>
+    </div>
+  <% end %>
+
+  <% if @results.empty? %>
+    <div class="alert alert-info">No results match your filters. Upload a lab report to get started.</div>
+  <% else %>
+    <% @results.group_by(&:spec_code).each do |spec, rows| %>
+      <h3 class="mt-4"><%= spec %> <span class="text-muted">(<%= rows.size %>)</span></h3>
+      <div class="table-card mb-4">
+        <div class="table-responsive">
+          <table class="modern-table dashboard-table">
+            <%= render "columns_#{spec_partial_key(spec)}", rows: rows, project: @project %>
+          </table>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

@@ -24,6 +24,9 @@
     <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="bid-items" data-action="tabs#switch">
       Bid Items
     </button>
+    <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="lab-tests" data-action="tabs#switch">
+      Lab Tests
+    </button>
     <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="equipment" data-action="tabs#switch">
       Equipment
     </button>
@@ -44,6 +47,10 @@
 
   <div class="directory-panel d-none" data-tabs-target="panel" data-tab="bid-items">
     <%= render "projects/bid_items_tab" %>
+  </div>
+
+  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="lab-tests">
+    <%= render "projects/lab_tests_tab" %>
   </div>
 
   <div class="directory-panel d-none" data-tabs-target="panel" data-tab="equipment">

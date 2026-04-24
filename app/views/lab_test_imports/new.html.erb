@@ -1,0 +1,74 @@
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>Upload Lab Test Report</h1>
+    <%= link_to "Back to Results", project_lab_test_results_path(@project), class: "btn btn-secondary" %>
+  </div>
+
+  <div class="form-card">
+    <%= form_with(model: [@project, @import], local: true, multipart: true,
+                  data: {
+                    controller: "lab-test-import-form",
+                    lab_test_import_form_asphalt_specs_value: LabTestImport::ASPHALT_SPEC_CODES.to_json,
+                    lab_test_import_form_concrete_specs_value: LabTestImport::CONCRETE_SPEC_CODES.to_json
+                  }) do |form| %>
+      <% if @import.errors.any? %>
+        <div class="error-explanation">
+          <h2><%= pluralize(@import.errors.count, "error") %> prohibited this upload:</h2>
+          <ul>
+            <% @import.errors.each do |error| %>
+              <li><%= error.full_message %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Spec Code <span class="text-danger">*</span></label>
+          <%= form.select :spec_code,
+                options_for_select(LabTestImport::SPEC_CODES, @import.spec_code),
+                { include_blank: "Select a spec" },
+                { class: "form-control", required: true,
+                  data: {
+                    lab_test_import_form_target: "specCode",
+                    action: "change->lab-test-import-form#specChanged"
+                  } } %>
+        </div>
+        <div class="form-group" data-lab-test-import-form-target="lotField">
+          <label>Asphalt Lot</label>
+          <%= form.select :asphalt_lot_id,
+                options_for_select(@asphalt_lots.map { |l| ["#{l.lot_number} — #{l.plant} — #{l.mix_type}", l.id] }, @import.asphalt_lot_id),
+                { include_blank: "— No lot —" },
+                { class: "form-control" } %>
+          <small class="form-text text-muted">
+            Optional. Link this report to one of the project's asphalt lots.
+          </small>
+        </div>
+        <div class="form-group" data-lab-test-import-form-target="reportField">
+          <label>Daily Report</label>
+          <%= form.select :report_id,
+                options_for_select(@reports.map { |r| [report_option_label(r), r.id] }, @import.report_id),
+                { include_blank: "— No report —" },
+                { class: "form-control" } %>
+          <small class="form-text text-muted">
+            Optional. Link this P-610 test to a daily inspection report.
+          </small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>PDF File <span class="text-danger">*</span></label>
+          <%= form.file_field :source_pdf, accept: "application/pdf", required: true, class: "form-control" %>
+          <small class="form-text text-muted">
+            Max size: <%= LabTestImport::MAX_PDF_SIZE / 1.megabyte %>MB. Text-based PDFs only (scanned images not supported).
+          </small>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <%= form.submit "Upload & Extract", class: "btn btn-primary" %>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,49 @@
+<div class="dashboard-container"
+     data-controller="lab-test-import"
+     data-lab-test-import-id-value="<%= @import.id %>"
+     data-lab-test-import-initial-status-value="<%= @import.status %>">
+  <div class="dashboard-header">
+    <h1>Lab Test Import #<%= @import.id %></h1>
+    <div>
+      <%= link_to "Results Table", project_lab_test_results_path(@project), class: "btn btn-secondary" %>
+      <%= link_to "Upload Another", new_project_lab_test_import_path(@project), class: "btn btn-primary" %>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-2"><strong>Spec</strong><br><%= @import.spec_code %></div>
+        <div class="col-md-3">
+          <% if LabTestImport::CONCRETE_SPEC_CODES.include?(@import.spec_code) %>
+            <strong>Daily Report</strong><br>
+            <% if @import.report %>
+              <%= link_to report_option_label(@import.report), report_path(@import.report), class: "link-primary" %>
+            <% else %>
+              <span class="text-muted">—</span>
+            <% end %>
+          <% else %>
+            <strong>Lot</strong><br>
+            <% if @import.asphalt_lot %>
+              <%= link_to @import.asphalt_lot.lot_number, project_asphalt_lot_path(@project, @import.asphalt_lot), class: "link-primary" %>
+            <% else %>
+              <span class="text-muted">—</span>
+            <% end %>
+          <% end %>
+        </div>
+        <div class="col-md-2"><strong>Lab</strong><br><span data-lab-test-import-target="labName"><%= @import.lab_name || "—" %></span></div>
+        <div class="col-md-2"><strong>Rows extracted</strong><br><span data-lab-test-import-target="rowCount"><%= @import.row_count %></span></div>
+        <div class="col-md-3">
+          <strong>Status</strong><br>
+          <span class="badge badge-<%= status_badge_class(@import.status) %>" data-lab-test-import-target="statusBadge">
+            <%= @import.status.humanize %>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-lab-test-import-target="statusPanel">
+    <%= render "status_panel", import: @import, project: @project %>
+  </div>
+</div>

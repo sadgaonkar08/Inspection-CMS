@@ -62,6 +62,19 @@ Rails.application.routes.draw do
         collection { post :create_for_sublot }
       end
     end
+
+    resources :lab_test_imports, only: [:new, :create, :show, :destroy] do
+      member do
+        patch :approve
+        patch :reject
+      end
+    end
+
+    resources :lab_test_results, only: [:index, :edit, :update, :destroy] do
+      collection do
+        get :export_csv
+      end
+    end
   end
   
   resources :weekly_reports do

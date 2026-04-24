@@ -1,0 +1,92 @@
+<div class="d-flex justify-between align-center mb-4">
+  <h3 class="mb-0">Lab Tests</h3>
+  <div>
+    <%= link_to "View All Results", project_lab_test_results_path(@project), class: "btn btn-secondary" %>
+    <%= link_to "+ Upload Report", new_project_lab_test_import_path(@project), class: "btn btn-primary" %>
+  </div>
+</div>
+
+<% total_results = @lab_test_results_summary.values.sum %>
+<% if total_results.positive? %>
+  <div class="form-card mb-4">
+    <h4 class="mb-3">Results Summary</h4>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Spec</th>
+          <th class="text-right">Pass</th>
+          <th class="text-right">Fail</th>
+          <th class="text-right">Total</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% LabTestImport::SPEC_CODES.each do |spec| %>
+          <% pass = @lab_test_results_summary[[spec, "pass"]].to_i %>
+          <% fail_count = @lab_test_results_summary[[spec, "fail"]].to_i %>
+          <% total = pass + fail_count %>
+          <% next if total.zero? %>
+          <tr>
+            <td class="cell-primary"><%= spec %></td>
+            <td class="text-right"><span class="badge badge-success"><%= pass %></span></td>
+            <td class="text-right">
+              <% if fail_count.positive? %>
+                <span class="badge badge-danger"><%= fail_count %></span>
+              <% else %>
+                <span class="text-muted">0</span>
+              <% end %>
+            </td>
+            <td class="text-right"><%= total %></td>
+            <td class="text-right">
+              <%= link_to "View", project_lab_test_results_path(@project, spec_code: spec), class: "btn btn-secondary btn-sm" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<div class="form-card">
+  <h4 class="mb-3">Recent Uploads</h4>
+  <% if @lab_test_imports.any? %>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Uploaded</th>
+          <th>Spec</th>
+          <th>Lot / Report</th>
+          <th>Lab</th>
+          <th>Rows</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @lab_test_imports.each do |import| %>
+          <tr>
+            <td><%= import.created_at.strftime("%b %d, %Y %H:%M") %></td>
+            <td class="cell-primary"><%= import.spec_code %></td>
+            <td>
+              <% if import.asphalt_lot %>
+                <%= link_to import.asphalt_lot.lot_number, project_asphalt_lot_path(@project, import.asphalt_lot), class: "link-primary" %>
+              <% elsif import.report %>
+                <%= link_to report_option_label(import.report), report_path(import.report), class: "link-primary" %>
+              <% else %>
+                <span class="text-muted">—</span>
+              <% end %>
+            </td>
+            <td><%= import.lab_name.presence || "-" %></td>
+            <td><%= import.row_count %></td>
+            <td><span class="badge badge-<%= status_badge_class(import.status) %>"><%= import.status.humanize %></span></td>
+            <td class="text-right">
+              <%= link_to "View", project_lab_test_import_path(@project, import), class: "btn btn-secondary btn-sm" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted mb-0">No lab test reports uploaded yet. Click "+ Upload Report" to import a PDF.</p>
+  <% end %>
+</div>

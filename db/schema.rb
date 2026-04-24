@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_10_000001) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_22_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -85,6 +85,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_10_000001) do
     t.date "paving_date"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "total_tonnage", precision: 12, scale: 2
     t.index ["project_id", "plant", "mix_type", "lot_number"], name: "index_asphalt_lots_on_project_plant_mix_lot_number", unique: true
     t.index ["project_id"], name: "index_asphalt_lots_on_project_id"
   end
@@ -255,6 +256,57 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_10_000001) do
     t.index ["project_id"], name: "index_imported_reports_on_project_id"
     t.index ["status"], name: "index_imported_reports_on_status"
     t.index ["user_id"], name: "index_imported_reports_on_user_id"
+  end
+
+  create_table "lab_test_imports", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.bigint "user_id", null: false
+    t.string "spec_code", null: false
+    t.string "lab_name"
+    t.string "status", default: "pending", null: false
+    t.text "raw_text"
+    t.jsonb "report_header", default: {}, null: false
+    t.jsonb "parsed_data", default: [], null: false
+    t.jsonb "extraction_errors", default: [], null: false
+    t.integer "row_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "asphalt_lot_id"
+    t.bigint "report_id"
+    t.index ["asphalt_lot_id"], name: "index_lab_test_imports_on_asphalt_lot_id"
+    t.index ["project_id", "spec_code"], name: "index_lab_test_imports_on_project_id_and_spec_code"
+    t.index ["project_id", "status", "created_at"], name: "index_lab_test_imports_on_project_id_and_status_and_created_at"
+    t.index ["project_id"], name: "index_lab_test_imports_on_project_id"
+    t.index ["report_id"], name: "index_lab_test_imports_on_report_id"
+    t.index ["user_id"], name: "index_lab_test_imports_on_user_id"
+  end
+
+  create_table "lab_test_results", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.bigint "lab_test_import_id", null: false
+    t.bigint "created_by_id"
+    t.string "spec_code", null: false
+    t.string "lab_name"
+    t.date "report_date"
+    t.date "test_date"
+    t.string "sublot_number"
+    t.jsonb "data", default: {}, null: false
+    t.string "result"
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "asphalt_lot_id"
+    t.bigint "report_id"
+    t.index ["asphalt_lot_id"], name: "index_lab_test_results_on_asphalt_lot_id"
+    t.index ["created_by_id"], name: "index_lab_test_results_on_created_by_id"
+    t.index ["lab_test_import_id"], name: "index_lab_test_results_on_lab_test_import_id"
+    t.index ["project_id", "asphalt_lot_id"], name: "index_lab_test_results_on_project_id_and_asphalt_lot_id"
+    t.index ["project_id", "report_id"], name: "index_lab_test_results_on_project_id_and_report_id"
+    t.index ["project_id", "result"], name: "index_lab_test_results_on_project_id_and_result"
+    t.index ["project_id", "spec_code"], name: "index_lab_test_results_on_project_id_and_spec_code"
+    t.index ["project_id", "test_date"], name: "index_lab_test_results_on_project_id_and_test_date"
+    t.index ["project_id"], name: "index_lab_test_results_on_project_id"
+    t.index ["report_id"], name: "index_lab_test_results_on_report_id"
   end
 
   create_table "phases", force: :cascade do |t|
@@ -494,6 +546,15 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_10_000001) do
   add_foreign_key "equipment_entries", "reports"
   add_foreign_key "imported_reports", "projects"
   add_foreign_key "imported_reports", "users"
+  add_foreign_key "lab_test_imports", "asphalt_lots"
+  add_foreign_key "lab_test_imports", "projects"
+  add_foreign_key "lab_test_imports", "reports"
+  add_foreign_key "lab_test_imports", "users"
+  add_foreign_key "lab_test_results", "asphalt_lots"
+  add_foreign_key "lab_test_results", "lab_test_imports"
+  add_foreign_key "lab_test_results", "projects"
+  add_foreign_key "lab_test_results", "reports"
+  add_foreign_key "lab_test_results", "users", column: "created_by_id"
   add_foreign_key "phases", "projects"
   add_foreign_key "placed_quantities", "bid_items"
   add_foreign_key "placed_quantities", "change_orders"

@@ -153,7 +153,7 @@ class AsphaltLotsController < ApplicationController
   end
 
   def asphalt_lot_params
-    params.require(:asphalt_lot).permit(:lot_number, :plant, :mix_type, :contractor, :mix_design, :pg, :description, :paving_date)
+    params.require(:asphalt_lot).permit(:lot_number, :plant, :mix_type, :contractor, :mix_design, :pg, :description, :paving_date, :total_tonnage)
   end
 
   def quick_setup_params
@@ -197,6 +197,7 @@ class AsphaltLotsController < ApplicationController
       lot_number: lot.lot_number,
       mix_type: lot.mix_type,
       plant: lot.plant,
+      total_tonnage: lot.total_tonnage,
       sublots_count: lot.asphalt_sublots.count
     }
   end
@@ -251,6 +252,7 @@ class AsphaltLotsController < ApplicationController
       pg: lot.pg,
       description: lot.description,
       paving_date: lot.paving_date,
+      total_tonnage: lot.total_tonnage,
       core_generations_count: lot.core_generations.count,
       sublots: lot.asphalt_sublots.order(:position).includes(:asphalt_lanes).map do |sublot|
         {

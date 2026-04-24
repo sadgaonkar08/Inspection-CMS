@@ -326,7 +326,8 @@
     <% project_for_cores = report.project || (@project if defined?(@project)) %>
     <% if project_for_cores %>
       <% asphalt_checklist_saved = report.flexible_pavement_checklist_saved? %>
-      <% latest_linked_generation = report.core_generations.order(created_at: :desc).first %>
+       <% linked_generations = report.core_generations.includes(:asphalt_lot).order(created_at: :desc).to_a %>
+       <% latest_linked_generation = linked_generations.first %>
       <% selected_lot_id = latest_linked_generation&.asphalt_lot_id %>
       <% linked_locations = latest_linked_generation ? latest_linked_generation.core_locations.includes(:asphalt_sublot, :asphalt_lane).order(:mark) : [] %>
       <% show_core_section = asphalt_checklist_saved %>
@@ -335,7 +336,8 @@
            data-controller="core-generation-selector"
            data-core-generation-selector-target="section"
            data-core-generation-selector-project-id-value="<%= project_for_cores.id %>"
-           data-core-generation-selector-asphalt-checklist-selected-value="<%= asphalt_checklist_saved %>">
+         data-core-generation-selector-asphalt-checklist-selected-value="<%= asphalt_checklist_saved %>"
+         data-core-generation-selector-initial-generation-id-value="<%= latest_linked_generation&.id %>">
         <label class="font-bold block mb-2">Core Sample Locations</label>
         <p class="text-muted-sm mb-3">Flexible pavement checklist saved. Asphalt lot setup is enabled for this report.</p>
 
@@ -387,11 +389,14 @@
                 </div>
               </div>
 
-              <p class="text-muted-sm mb-3">Overview always shows the latest complete generation for this lot.</p>
+              <p class="text-muted-sm mb-3">Overview previews the latest complete generation for this lot. A generation is only attached when you create new cores from this report.</p>
 
               <div data-core-generation-selector-target="hiddenFields">
-                <% if latest_linked_generation %>
-                  <input type="hidden" name="report[core_generation_ids][]" value="<%= latest_linked_generation.id %>">
+                <% linked_generations.each do |generation| %>
+                  <input type="hidden"
+                         name="report[core_generation_ids][]"
+                         value="<%= generation.id %>"
+                         data-lot-id="<%= generation.asphalt_lot_id %>">
                 <% end %>
               </div>
 

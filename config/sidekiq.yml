@@ -1,0 +1,11 @@
+---
+:concurrency: 5
+:queues:
+  - default
+  - lab_extraction
+
+:development:
+  :concurrency: 5
+
+:production:
+  :concurrency: 10

@@ -1,19 +1,28 @@
 # Lab Test PDF Import & Tracking — Feature Plan
 
-**Status:** Planning complete — ready for implementation.
+**Status:** Planning — asphalt (P-401, P-403) only. P-152 and P-610 deferred.
 
 ---
 
 ## Overview
 
-A per-project tool to upload lab test report PDFs, extract structured test result rows, review uncertain extractions, and display finalized results in a filterable, copy-friendly table with CSV export.
+A per-project tool to upload asphalt lab test PDFs, extract structured test data via deterministic Python parsers, surface anything partially extracted for manual review, and display finalized results in a filterable, copy-friendly table with CSV export.
 
-**Spec types covered:** P-152, P-401, P-403, P-610
+**In scope (this pass):**
+- **P-401 HMA** — loose mix sampled at plant, Superpave gyratory results (Gmb / Gmm / air voids)
+- **P-403 cores** — in-place drilled cores, density/compaction results
+
+**Out of scope (deferred):**
+- P-152 embankment compaction
+- P-610 concrete cylinder breaks
+- Azure OpenAI / AI fallback extraction
+- Linking results to `AsphaltLot` / `CoreLocation` records
 
 **Sample PDFs available:**
-- `docs/P-403_03.16.2026_LOT-TS(SC)_AME_FAIL_CORES.pdf` — P-403 core density, AME lab
-- `docs/P-610_03.12.2026_92262_DAY28_RMA_PASS.pdf` — P-610 28-day cylinder break, RMA lab
-- Representative P-152 sample set (assumed available for parser implementation and validation)
+- `docs/P-401_04.15.2026_LOT-TS2(P)_AME_PASS_HMA.pdf` — AME lab, P-401 HMA gyratory, 3 sublots (TS2-SL1/2/3)
+- `docs/P-403_03.16.2026_LOT-TS(SC)_AME_FAIL_CORES.pdf` — AME lab, P-403 cores, 6 cores (3 mat + 3 joint)
+
+Both samples are text-based (clean `pdfplumber` output, no OCR needed).
 
 ---
 
@@ -23,158 +32,150 @@ A per-project tool to upload lab test report PDFs, extract structured test resul
 |---|---|
 | Where in the app? | Per-project page, alongside bid items and asphalt lots |
 | Display format | On-screen HTML table; easy to manually copy into Excel |
-| Excel export | CSV download for now; investigate `.xlsx` output as a separate task |
-| Lot/bid item linkage | Deferred — standalone records for now, add optional linkage later |
-| Review step | Auto-save if confidence ≥ 0.80; route to manual review if below threshold |
-| PDF format | Mostly text-based; occasional scanned images handled gracefully |
-| Extraction strategy | Deterministic parsers first; AI fallback only for fields the parser missed |
+| Excel export | CSV download for now; `.xlsx` a separate follow-up |
+| Lot/bid item linkage | Deferred — standalone records for now |
+| Extraction strategy | Deterministic parsers only; no AI this pass |
+| Review routing | Parser fully succeeded → `saved`; parser hit any error or missing required field → `needs_review` |
+| PDF format | Text-based only; scanned images rejected with a clear error |
 
 ---
 
-## Field Schemas
+## Important: P-401 and P-403 are NOT the same report format
 
-### P-401 / P-403 — Asphalt In-Place Cores / Density
-*(P-401 and P-403 use near-identical report formats)*
+Although both sample PDFs come from the same lab (AME) with an identical letterhead, they test completely different things and produce different record shapes. They need separate parsers and separate display columns.
 
-| Field | Description |
+### P-401 HMA — per-sublot gyratory results
+
+One row per sublot. Each sublot has replicate measurements with averages.
+
+| Field | Example | Notes |
+|---|---|---|
+| `sublot_number` | `TS2-SL1` | String, parsed from header line |
+| `test_date` | `2026-04-15` | From `Test Date: 4/15/26 @ 74T` |
+| `tonnage_point_tons` | `74` | From `@ 74T` on test date line |
+| `time_in_oven_hrs` | `2` | From `(Time in Oven: 2 hrs)` |
+| `gyrations` | `75` | From intro paragraph, constant per report |
+| `gmb_samples` | `[2.396, 2.394, 2.397]` | 3 replicates, ASTM D2726 |
+| `gmb_avg` | `2.396` | |
+| `gmm_samples` | `[2.463, 2.469]` | 2 replicates, ASTM D2041 |
+| `gmm_avg` | `2.466` | |
+| `air_voids_samples` | `[2.83, 2.90, 2.80]` | 3 replicates, ASTM D3203 |
+| `air_voids_avg` | `2.84` | |
+| `air_voids_min_pct` | `2.5` | From `Project Requirement: Air Voids 2.5% to 4.5%` |
+| `air_voids_max_pct` | `4.5` | |
+| `result` | `pass` / `fail` | Computed: `air_voids_min ≤ air_voids_avg ≤ air_voids_max` |
+
+### P-403 cores — per-core in-place density
+
+One row per core. Report has cores grouped by type (mat vs joint), each group with its own threshold.
+
+| Field | Example | Notes |
+|---|---|---|
+| `sublot_number` | `TS/SL1` | String from `Lot/Sublot` header row |
+| `core_id` | `M1`, `J1` | |
+| `core_type` | `mat` / `joint` | Drives `required_compaction_pct` |
+| `thickness_as_received_in` | `4.70` | |
+| `thickness_trimmed_in` | `4.20` | |
+| `gmb` | `2.434` | Bulk specific gravity (ASTM D2726 for mat, D1188 for joint) |
+| `gmm` | `2.483` | Theoretical max specific gravity |
+| `compaction_pct` | `98.0` | |
+| `astm_standard` | `D2726` / `D1188` | Differs by core type in the AME format |
+| `required_compaction_pct` | `94` for mat, `92` for joint | From `Project Requirements: Mat. ≥ 94% ; Joint ≥ 92%` |
+| `result` | `pass` / `fail` | Computed: `compaction_pct ≥ required_compaction_pct` |
+
+### Shared report header (both specs)
+
+Extracted by a common helper, stored on the import record:
+
+| Field | Example |
 |---|---|
-| `lab_name` | Testing laboratory name |
-| `report_number` | Lab report number |
-| `test_date` | Date of testing |
-| `lot_number` | Asphalt lot |
-| `sublot_number` | Sublot within the lot |
-| `location` | Station or location description |
-| `core_id` | Core sample identifier |
-| `core_thickness_in` | Measured core thickness (inches) |
-| `bulk_specific_gravity` | Gmb |
-| `max_specific_gravity` | Gmm (Rice value) |
-| `air_voids_pct` | Va (%) |
-| `compaction_pct` | % Gmm achieved |
-| `required_compaction_pct` | Spec minimum (%) |
-| `result` | pass / fail |
-
-### P-610 — Concrete Cylinder Breaks
-
-| Field | Description |
-|---|---|
-| `lab_name` | Testing laboratory name |
-| `report_number` | Lab report number |
-| `test_date` | Date of cylinder break |
-| `pour_date` | Date concrete was placed |
-| `break_age_days` | Break age: 7, 14, or 28 days |
-| `set_id` | Sample / set identifier |
-| `mix_design_id` | Concrete mix design reference |
-| `location` | Pour location description |
-| `break_strength_psi` | Measured compressive strength (psi) |
-| `required_strength_psi` | Spec minimum strength (psi) |
-| `result` | pass / fail |
-
-### P-152 — Embankment Compaction
-
-| Field | Description |
-|---|---|
-| `lab_name` | Testing laboratory name |
-| `report_number` | Lab report number |
-| `test_date` | Date of testing |
-| `location` | Station or location description |
-| `test_number` | Sequential test number |
-| `proctor_max_dry_density_pcf` | Lab proctor maximum dry density (pcf) |
-| `proctor_optimum_moisture_pct` | Lab proctor optimum moisture (%) |
-| `field_dry_density_pcf` | In-place measured dry density (pcf) |
-| `field_moisture_pct` | In-place measured moisture (%) |
-| `compaction_pct` | % compaction achieved |
-| `required_compaction_pct` | Spec minimum (%) |
-| `result` | pass / fail |
+| `lab_name` | `AME` (Applied Materials & Engineering) |
+| `report_date` | `2026-03-23` (date on the letter) |
+| `project_number` | `1260185T` |
+| `project_subject` | `Runway 1R-19L and Taxiway W Rehabilitation` |
+| `plant` | `Granite - Pleasanton Plant` / `Granite - Santa Clara Plant` |
+| `mix_number` | `15345` / `15347` |
 
 ---
 
 ## Architecture
 
-### Phase 1 — Database
+### Phase 1 — Python extraction (start here)
 
-Two new tables following the existing `ImportedReport` staging pattern.
-
-#### `lab_test_imports` (staging)
-
-| Column | Type | Notes |
-|---|---|---|
-| `project_id` | bigint FK | NOT NULL |
-| `user_id` | bigint FK | NOT NULL — uploader |
-| `spec_code` | string | `"P-401"`, `"P-403"`, `"P-610"`, `"P-152"` |
-| `lab_name` | string | Detected from PDF header |
-| `status` | string | `pending` → `needs_review` / `saved` / `rejected` |
-| `raw_text` | text | Full text extracted from PDF |
-| `parsed_data` | jsonb | Array of extracted row hashes |
-| `confidence_score` | float | 0.0–1.0 |
-| `extraction_errors` | text | Error messages if extraction failed |
-| `source_pdf` | ActiveStorage | Attached PDF file |
-
-#### `lab_test_results` (finalized records)
-
-| Column | Type | Notes |
-|---|---|---|
-| `project_id` | bigint FK | NOT NULL |
-| `lab_test_import_id` | bigint FK | Optional — traceability back to import |
-| `spec_code` | string | NOT NULL |
-| `lab_name` | string | |
-| `report_number` | string | |
-| `test_date` | date | |
-| `location` | string | |
-| `data` | jsonb | All spec-specific fields (schema varies per spec_code) |
-| `result` | string | `pass` / `fail` / `pending` |
-| `notes` | text | Manual notes added during review |
-| `created_by_id` | bigint FK | User who finalized/approved |
-
-**Files:**
-- `db/migrate/..._create_lab_test_imports.rb`
-- `db/migrate/..._create_lab_test_results.rb`
-
----
-
-### Phase 2 — Python Extraction Script
-
-**Strategy: deterministic-first, AI fallback only for missing fields.**
+**Deterministic parsers only.** No AI. Each parser reads the full text via `pdfplumber.extract_text()` and uses regex/string matching against the known AME format.
 
 ```
 python/
-  extract_lab_report.py       ← dispatcher / orchestrator
+  extract_lab_report.py           ← dispatcher
+  test_extract.py                 ← CLI harness: prints JSON for a given PDF
   parsers/
-    ame_p401_p403.py          ← AME lab, P-401 / P-403 format
-    rma_p610.py               ← RMA lab, P-610 format
-      p152_base.py              ← P-152 embankment compaction parser
-    ...                       ← one module per lab+spec, added as new PDFs arrive
+    __init__.py
+    ame_common.py                 ← shared header parser + numeric helpers
+    ame_p401_hma.py               ← P-401 HMA gyratory
+    ame_p403_cores.py             ← P-403 cores in-place density
 ```
 
-#### `extract_lab_report.py` — execution steps
+#### Dispatcher contract
 
-1. Use `pdfplumber` to extract full text and tables from all pages
-2. Detect lab name by matching known header strings in first-page text
-3. Dispatch to the matching parser in `parsers/`
-4. Parser returns `{ rows, fields_found, fields_missing }` for each data row
-5. **If `fields_missing` is empty** → return immediately; **no AI call made**
-6. **If any fields are missing (fallback):**
-   - Call Azure OpenAI with only the raw text + a targeted prompt listing the specific missing fields (e.g. `"Please extract the following fields: [core_thickness_in, bulk_specific_gravity]"`)
-   - Merge AI-returned values back into the rows
-   - Tag each field value with `_source: "parser"` or `_source: "ai"` so the review UI can highlight AI-filled cells
-7. Re-score: `confidence = total_fields_found / total_fields_expected` across all rows
-8. Return JSON:
+```
+python/extract_lab_report.py --pdf <path> --spec P-401|P-403
+```
+
+1. Open PDF with `pdfplumber`, extract full text from all pages
+2. If no text at all → emit `{"error": "no_text_scanned"}` and exit 2
+3. Detect lab from header (`"Applied Materials & Engineering"` → `AME`)
+4. Dispatch to the matching parser by `(spec, lab)` — currently only AME supported for both
+5. Parser returns rows + report header; dispatcher wraps and emits JSON to stdout
+
+#### Parser module contract
+
+Each `parsers/<lab>_<spec>.py` exposes:
+
+```python
+EXPECTED_FIELDS = [...]                # schema keys, for downstream validation
+
+def parse(text: str) -> dict:
+    # returns:
+    # {
+    #   "header": { "lab_name": "AME", "report_date": "2026-03-23", ... },
+    #   "rows":   [ { ...row_fields... }, ... ],
+    #   "errors": [ "missing_field:air_voids_avg@TS2-SL2", ... ]
+    # }
+```
+
+#### Dispatcher output JSON
 
 ```json
 {
-  "spec_code": "P-403",
-  "lab_name": "AME",
-  "parser_used": "ame_p401_p403",
-  "raw_text": "...",
+  "spec_code": "P-401",
+  "parser_used": "ame_p401_hma",
+  "header": {
+    "lab_name": "AME",
+    "report_date": "2026-04-16",
+    "project_number": "1260185T",
+    "plant": "Granite - Pleasanton Plant",
+    "mix_number": "15347"
+  },
   "rows": [
     {
-      "core_id": { "value": "C-1", "_source": "parser" },
-      "bulk_specific_gravity": { "value": 2.341, "_source": "parser" },
-      "air_voids_pct": { "value": 4.2, "_source": "ai" }
+      "sublot_number": "TS2-SL1",
+      "test_date": "2026-04-15",
+      "tonnage_point_tons": 74,
+      "time_in_oven_hrs": 2,
+      "gyrations": 75,
+      "gmb_samples": [2.396, 2.394, 2.397],
+      "gmb_avg": 2.396,
+      "gmm_samples": [2.463, 2.469],
+      "gmm_avg": 2.466,
+      "air_voids_samples": [2.83, 2.90, 2.80],
+      "air_voids_avg": 2.84,
+      "air_voids_min_pct": 2.5,
+      "air_voids_max_pct": 4.5,
+      "result": "pass"
     }
   ],
-  "confidence": 0.91,
   "errors": [],
-  "scanned": false
+  "row_count": 3
 }
 ```
 
@@ -182,72 +183,94 @@ python/
 
 | Scenario | Behavior |
 |---|---|
-| Unknown lab (no parser match) | AI receives full raw text + full spec schema as last resort; `errors: ["unknown_lab"]` |
-| Scanned image (no extractable text) | Skip AI entirely; `errors: ["no_text_scanned"]`; route to `needs_review` with clear message |
-| Parser found but all fields missing | Treated same as unknown lab — full AI fallback |
-
-#### Parser module contract
-
-Each `parsers/*.py` module must expose:
-
-```python
-EXPECTED_FIELDS = ["core_id", "core_thickness_in", ...]  # defines the schema
-
-def parse(pages: list, tables: list) -> dict:
-    # returns { "rows": [...], "fields_missing": [...] }
-```
-
-New parsers drop in here with no changes to `extract_lab_report.py`.
+| Scanned PDF (no extractable text) | Exit 2, `errors: ["no_text_scanned"]` — Rails routes to `needs_review` |
+| Unknown lab header | Exit 3, `errors: ["unknown_lab"]` |
+| Parser found report but missed a required field | Row included, `errors` lists each miss; Rails routes to `needs_review` |
+| Parser crash (unexpected exception) | Exit 1, stderr carries traceback; Rails marks `rejected` |
 
 #### `python/requirements.txt` additions
+
 ```
-pdfplumber>=0.10.0
-openai>=1.0.0        # only imported at runtime when AI fallback is triggered
+pdfplumber>=0.11.0
 ```
 
-**New files:**
-- `python/extract_lab_report.py`
-- `python/parsers/ame_p401_p403.py`
-- `python/parsers/rma_p610.py`
-- `python/parsers/p152_base.py`
-
-**Modified:**
-- `python/requirements.txt`
+(No `openai` — no AI fallback this pass.)
 
 ---
 
-### Phase 3 — Ruby Bridge Service
+### Phase 2 — Database
 
-`app/services/python_pdf_extractor.rb` — mirrors the existing `PythonDocxImporter` pattern exactly:
+Two new tables, mirroring the existing `ImportedReport` staging pattern.
+
+#### `lab_test_imports` (staging)
+
+| Column | Type | Notes |
+|---|---|---|
+| `project_id` | bigint FK | NOT NULL |
+| `user_id` | bigint FK | NOT NULL — uploader |
+| `spec_code` | string | `"P-401"` or `"P-403"` |
+| `lab_name` | string | From extracted header |
+| `status` | string | `pending` → `saved` / `needs_review` / `rejected` |
+| `raw_text` | text | Full text extracted from PDF (capped — see below) |
+| `report_header` | jsonb | Lab-level header fields |
+| `parsed_data` | jsonb | Array of extracted row hashes |
+| `extraction_errors` | jsonb | Array of error strings / codes |
+| `row_count` | integer | For quick display without parsing jsonb |
+| `source_pdf` | ActiveStorage | Attached PDF file |
+
+Indexes: `(project_id, status, created_at)`, `(project_id, spec_code)`.
+
+#### `lab_test_results` (finalized records)
+
+| Column | Type | Notes |
+|---|---|---|
+| `project_id` | bigint FK | NOT NULL |
+| `lab_test_import_id` | bigint FK | NOT NULL — traceability back to import |
+| `spec_code` | string | NOT NULL — drives which column partial / schema to use |
+| `lab_name` | string | |
+| `report_date` | date | From import header |
+| `test_date` | date | Row-specific (P-401 has per-sublot dates; P-403 uses report date) |
+| `sublot_number` | string | Indexed for filtering |
+| `data` | jsonb | All spec-specific fields — schema varies by `spec_code` |
+| `result` | string | `pass` / `fail` |
+| `notes` | text | Manual notes added during review |
+| `created_by_id` | bigint FK | User who finalized |
+
+Indexes: `(project_id, spec_code)`, `(project_id, result)`, `(project_id, test_date)`.
+
+**Files:**
+- `db/migrate/..._create_lab_test_imports.rb`
+- `db/migrate/..._create_lab_test_results.rb`
+
+---
+
+### Phase 3 — Ruby bridge service
+
+`app/services/python_pdf_extractor.rb` — mirrors `PythonDocxImporter`.
 
 ```ruby
-PythonPdfExtractor.extract(pdf_path: "/tmp/foo.pdf", spec_code: "P-403")
-# => { "rows" => [...], "confidence" => 0.91, ... }
+PythonPdfExtractor.extract(pdf_path: "/tmp/foo.pdf", spec_code: "P-401")
+# => { "spec_code" => "P-401", "header" => {...}, "rows" => [...], "errors" => [...] }
 ```
 
-Calls `python/extract_lab_report.py` via `Open3.capture3`, parses JSON stdout, raises on non-zero exit.
-
-**Files:**
-- `app/services/python_pdf_extractor.rb`
+Calls `python/extract_lab_report.py` via `Open3.capture3`, parses JSON stdout, raises on unexpected exit codes (treats exit 2/3 as structured errors, not exceptions).
 
 ---
 
-### Phase 4 — Background Job
+### Phase 4 — Background job
 
-`app/jobs/lab_test_extraction_job.rb`
+`app/jobs/lab_test_extraction_job.rb` on a dedicated `:lab_extraction` queue.
 
-1. Receive `lab_test_import_id`
-2. Download PDF from ActiveStorage to a temp file
-3. Call `PythonPdfExtractor.extract(pdf_path:, spec_code:)`
-4. Update `lab_test_import` with `parsed_data`, `confidence_score`, `raw_text`, `lab_name`
-5. **If confidence ≥ 0.80** → auto-create `LabTestResult` rows, mark import `saved`
-6. **If confidence < 0.80** → mark import `needs_review`; user reviews on the show page
-7. **On exception** → mark import `rejected`, store message in `extraction_errors`
+1. Download attached PDF to a temp file
+2. Call `PythonPdfExtractor.extract(pdf_path:, spec_code:)`
+3. Update `lab_test_import` with `raw_text`, `report_header`, `parsed_data`, `extraction_errors`, `row_count`, `lab_name`
+4. **If `errors` empty AND every expected field present on every row** → auto-create `LabTestResult` rows, mark import `saved`
+5. **Otherwise** → mark import `needs_review`
+6. **On exception** → mark import `rejected`, store message in `extraction_errors`
 
-The 0.80 threshold is a starting point — tune after observing real imports.
+All finalization happens in a single DB transaction so partial failures leave the import in a clean state.
 
-**Files:**
-- `app/jobs/lab_test_extraction_job.rb`
+Use ActionCable (same pattern as `ReportExportJob`) to push status changes to the show page — no polling.
 
 ---
 
@@ -258,18 +281,18 @@ The 0.80 threshold is a starting point — tune after observing real imports.
 belongs_to :project
 belongs_to :user
 has_one_attached :source_pdf
-has_many :lab_test_results
+has_many :lab_test_results, dependent: :nullify
 enum status: { pending: "pending", needs_review: "needs_review", saved: "saved", rejected: "rejected" }
 ```
 
 #### `LabTestResult`
 ```ruby
 belongs_to :project
-belongs_to :lab_test_import, optional: true
+belongs_to :lab_test_import
 belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
-enum result: { pass: "pass", fail: "fail", pending_result: "pending" }
-scope :by_spec_code, ->(code) { where(spec_code: code) }
-scope :by_result,    ->(r)    { where(result: r) }
+enum result: { pass: "pass", fail: "fail" }
+scope :by_spec_code,  ->(code) { where(spec_code: code) }
+scope :by_result,     ->(r)    { where(result: r) }
 scope :by_date_range, ->(from, to) { where(test_date: from..to) }
 ```
 
@@ -279,14 +302,9 @@ has_many :lab_test_imports, dependent: :destroy
 has_many :lab_test_results, dependent: :destroy
 ```
 
-**Files:**
-- `app/models/lab_test_import.rb`
-- `app/models/lab_test_result.rb`
-- `app/models/project.rb` *(modified)*
-
 ---
 
-### Phase 6 — Controllers & Routes
+### Phase 6 — Controllers & routes
 
 #### Routes (nested under `resources :projects`)
 
@@ -309,10 +327,10 @@ end
 
 | Action | Description |
 |---|---|
-| `new` | Upload form — file picker + spec_code select |
-| `create` | Save attached PDF, enqueue `LabTestExtractionJob`, redirect to `show` |
-| `show` | Status page — pending spinner / needs_review table / saved summary |
-| `approve` | Persist `parsed_data` rows to `lab_test_results`, mark import `saved` |
+| `new` | Upload form — file picker + spec_code select (P-401 / P-403) |
+| `create` | Validate PDF MIME + size cap, attach, enqueue `LabTestExtractionJob`, redirect to `show` |
+| `show` | Status page — live-updates via ActionCable |
+| `approve` | Persist `parsed_data` rows to `lab_test_results`, mark import `saved` (used when reviewer manually corrects a `needs_review` import) |
 | `reject` | Mark import `rejected` |
 
 #### `LabTestResultsController`
@@ -320,58 +338,36 @@ end
 | Action | Description |
 |---|---|
 | `index` | Filterable table — filter by spec_code, result, date range |
-| `edit` | Edit an individual result row |
-| `update` | Save edited row |
-| `destroy` | Delete a result row |
-| `export_csv` | Download CSV with columns matching the displayed table |
-
-**Files:**
-- `app/controllers/lab_test_imports_controller.rb`
-- `app/controllers/lab_test_results_controller.rb`
-- `config/routes.rb` *(modified)*
+| `edit` / `update` / `destroy` | Single-row CRUD |
+| `export_csv` | CSV download with column set matching the selected spec |
 
 ---
 
 ### Phase 7 — Views
 
 #### Upload form — `lab_test_imports/new`
-
-- File input (PDF only)
-- `spec_code` dropdown: P-401, P-403, P-610, P-152
-- Submit triggers background job; page transitions to `show` for status polling
+- File input (accept `application/pdf` only, client + server validated)
+- `spec_code` dropdown: P-401, P-403
 
 #### Status / review page — `lab_test_imports/show`
 
 | Import status | UI shown |
 |---|---|
-| `pending` | Spinner + Turbo auto-refresh polling |
-| `needs_review` | Editable table of extracted rows; confidence score indicator; AI-filled cells highlighted; Approve / Reject buttons |
-| `saved` | Summary card (lab, spec, row count, date) + link to results table |
+| `pending` | Spinner + ActionCable live status |
+| `needs_review` | Editable table of extracted rows + list of missing-field errors; Approve / Reject buttons |
+| `saved` | Summary card (lab, spec, sublot/core count, report date) + link to results table |
 | `rejected` | Error message + option to re-upload |
-
-AI-sourced cell values should be visually distinct (e.g. light yellow background) in the review table so reviewers know what to scrutinize.
 
 #### Results table — `lab_test_results/index`
 
-- Filter bar: spec_code tabs or dropdown, pass/fail toggle, date range picker
-- P-401 and P-403 share the same column partial
-- Spec-specific column partials:
-  - `_columns_p401_p403.html.erb`
-  - `_columns_p610.html.erb`
-  - `_columns_p152.html.erb`
-- Result badge: pass = green, fail = red, pending = gray
-- Each row: Edit and Delete actions
+- Filter bar: spec_code tabs (P-401 / P-403), pass/fail toggle, date range picker
+- **Separate column partials per spec** (they show different data):
+  - `_columns_p401_hma.html.erb` — sublot, tonnage pt, Gmb avg, Gmm avg, air voids avg, min/max req, result
+  - `_columns_p403_cores.html.erb` — sublot, core ID, core type, thickness (trimmed), Gmb, Gmm, compaction %, req %, result
+- Result badge: pass = green, fail = red
+- Each row: Edit / Delete actions
 - CSV Download button
 - "Upload New Report" button → `new` import page
-
-**Files:**
-- `app/views/lab_test_imports/new.html.erb`
-- `app/views/lab_test_imports/show.html.erb`
-- `app/views/lab_test_results/index.html.erb`
-- `app/views/lab_test_results/edit.html.erb`
-- `app/views/lab_test_results/_columns_p401_p403.html.erb`
-- `app/views/lab_test_results/_columns_p610.html.erb`
-- `app/views/lab_test_results/_columns_p152.html.erb`
 
 ---
 
@@ -379,12 +375,9 @@ AI-sourced cell values should be visually distinct (e.g. light yellow background
 
 `app/javascript/controllers/lab_test_import_controller.js`
 
-- Polls `GET /projects/:id/lab_test_imports/:id.json` on an interval
-- When status changes from `pending`, replaces the status UI via Turbo or innerHTML swap
-- Mirrors the existing `report_export_controller.js` pattern
-
-**Files:**
-- `app/javascript/controllers/lab_test_import_controller.js`
+- Subscribes to an ActionCable channel for the import
+- On status change, swaps the status UI via Turbo Streams
+- Mirrors `report_export_controller.js`
 
 ---
 
@@ -405,21 +398,23 @@ app/views/lab_test_imports/new.html.erb
 app/views/lab_test_imports/show.html.erb
 app/views/lab_test_results/index.html.erb
 app/views/lab_test_results/edit.html.erb
-app/views/lab_test_results/_columns_p401_p403.html.erb
-app/views/lab_test_results/_columns_p610.html.erb
-app/views/lab_test_results/_columns_p152.html.erb
+app/views/lab_test_results/_columns_p401_hma.html.erb
+app/views/lab_test_results/_columns_p403_cores.html.erb
 app/javascript/controllers/lab_test_import_controller.js
+app/channels/lab_test_import_channel.rb
 python/extract_lab_report.py
-python/parsers/ame_p401_p403.py
-python/parsers/rma_p610.py
-python/parsers/p152_base.py
+python/test_extract.py
+python/parsers/__init__.py
+python/parsers/ame_common.py
+python/parsers/ame_p401_hma.py
+python/parsers/ame_p403_cores.py
 ```
 
 ### Modified files
 
 ```
 config/routes.rb               — add nested lab_test_imports and lab_test_results
-python/requirements.txt        — add pdfplumber, openai
+python/requirements.txt        — add pdfplumber
 app/models/project.rb          — add has_many :lab_test_imports, :lab_test_results
 ```
 
@@ -428,8 +423,8 @@ app/models/project.rb          — add has_many :lab_test_imports, :lab_test_res
 ```
 app/services/python_docx_importer.rb                    — Ruby→Python bridge pattern
 app/models/imported_report.rb                           — staging model pattern
-app/services/report_ai/azure_generator.rb               — Azure OpenAI call pattern
-app/javascript/controllers/report_export_controller.js  — async polling Stimulus pattern
+app/jobs/report_export_job.rb                           — job + broadcast pattern
+app/javascript/controllers/report_export_controller.js  — ActionCable status UI
 app/services/core_location_xlsx_exporter.rb             — CSV/XLSX export pattern
 ```
 
@@ -437,74 +432,55 @@ app/services/core_location_xlsx_exporter.rb             — CSV/XLSX export patt
 
 ## Verification Checklist
 
-- [ ] Upload `P-403_03.16.2026_LOT-TS(SC)_AME_FAIL_CORES.pdf` → AME parser fires, all core rows extracted, result = fail, confidence ≥ 0.80, auto-saved
-- [ ] Upload `P-610_03.12.2026_92262_DAY28_RMA_PASS.pdf` → RMA parser fires, cylinder break fields extracted, result = pass, auto-saved
-- [ ] Upload representative P-152 embankment compaction PDF → P-152 parser fires, compaction fields extracted, confidence scored correctly, auto-save/review routing behaves per threshold
-- [ ] Force low-confidence result → import routes to `needs_review`, review table shows correct rows, AI-sourced cells highlighted, Approve saves to `lab_test_results`
-- [ ] Submit a scanned/image PDF → `no_text_scanned` error, routes to `needs_review` with clear message, no AI call attempted
-- [ ] Submit PDF from unknown lab → AI fallback fires, result reviewed before saving
-- [ ] Results table: filter by each spec code, filter by pass/fail, filter by date range
-- [ ] CSV export: correct column headers per spec, all rows present, opens cleanly in Excel
-- [ ] Edit a result row → saved correctly
-- [ ] Delete a result row → removed from table
+### Python (Phase 1)
+- [ ] `python/test_extract.py docs/P-401_04.15.2026_LOT-TS2(P)_AME_PASS_HMA.pdf P-401` → JSON with 3 sublot rows, all `result: pass`, no errors
+- [ ] `python/test_extract.py docs/P-403_03.16.2026_LOT-TS(SC)_AME_FAIL_CORES.pdf P-403` → JSON with 6 core rows (3 mat + 3 joint); joint J1 `result: fail` (91.8% < 92%), others pass
+- [ ] Non-text/scanned PDF → exit 2, `no_text_scanned` error
+- [ ] Unrecognized lab header → exit 3, `unknown_lab` error
+
+### Rails (Phases 2–8, added later)
+- [ ] Upload each sample PDF → background job runs, import ends in `saved`, correct row count
+- [ ] Force a malformed PDF → routes to `needs_review` with readable error list
+- [ ] Results table filter by spec / result / date
+- [ ] CSV export: columns match selected spec, opens cleanly in Excel
+- [ ] Edit / Delete a result row
 - [ ] Reject an import → marked rejected, re-upload option shown
 
 ---
 
 ## Further Considerations
 
-### Performance Guardrails (pre-implementation)
+### Performance Guardrails
 
-To keep extraction responsive and avoid unnecessary database and API load, implement these defaults in the first pass.
+- Dedicated `:lab_extraction` Sidekiq queue so PDF work doesn't crowd UI jobs
+- Indexes on `lab_test_results (project_id, spec_code)`, `(project_id, result)`, `(project_id, test_date)`
+- `lab_test_imports (project_id, status, created_at)`
+- Cap stored `raw_text` size (e.g. 200KB) — we only need it for review/debug
+- Stream CSV export for large result sets
 
-#### 1) Job throughput and queue isolation
-- Put lab extraction on a dedicated queue (`lab_extraction`) separate from UI-critical jobs
-- Start with conservative concurrency (e.g. 2-4 workers for extraction queue) and tune after observing CPU usage
-- Add `started_at`, `finished_at`, and `retry_count` tracking so stuck/pending imports can be surfaced and requeued safely
+### Idempotency
 
-#### 2) Polling efficiency
-- Expose a compact JSON status payload for polling (`status`, `confidence_score`, `error_count`, `updated_at`)
-- Poll with backoff (e.g. 2s → 3s → 5s max), and stop polling immediately when status enters terminal states
-- Prefer status-only responses over full-page HTML rerenders during `pending`
+- Use a deterministic fingerprint on each parsed row (hash of `import_id + sublot_number + core_id`) to prevent duplicate `lab_test_results` if the job retries mid-finalization
+- Wrap finalization in a single DB transaction
 
-#### 3) Database read/write balance
-- Add indexes that match actual filters on `lab_test_results`: `(project_id, spec_code)`, `(project_id, result)`, `(project_id, test_date)`
-- Add status/time indexes on `lab_test_imports`: `(project_id, status, created_at)`
-- Avoid over-indexing `jsonb` fields until query patterns prove a need
+### Upload hardening
 
-#### 4) Idempotent writes under retries
-- Use deterministic row fingerprints (e.g. hash of normalized row payload + report metadata) to prevent duplicate result rows
-- Insert finalized rows with upsert semantics where possible to reduce retry overhead and duplicate cleanup work
-- Wrap import finalization in a single DB transaction so status/result rows stay consistent
+- Server-side MIME check (`application/pdf`) — don't trust the client
+- File size cap (e.g. 10MB) on `lab_test_imports.source_pdf`
+- Authorization: uploader must have access to the project (standard controller scoping)
 
-#### 5) AI and parsing cost controls
-- Call AI only when parser-missing fields exist (already planned), and send only targeted missing-field prompts
-- Enforce schema validation before saving AI-merged values to avoid downstream correction churn
-- Add hard limits for extracted text size sent to AI to prevent latency spikes on unusually large PDFs
+### Adding new lab parsers later
 
-#### 6) Payload size management
-- Store full `raw_text` only when needed for review/debug; otherwise store a capped excerpt + reference metadata
-- Keep `parsed_data` normalized and compact (avoid duplicating unchanged metadata in every row)
-- For CSV export, stream generation for large result sets to avoid high memory use in web workers
+When a non-AME lab's PDF arrives:
+1. Run `pdfplumber` against a sample and inspect text structure
+2. Add `python/parsers/<lab>_<spec>.py` with a `parse(text)` function
+3. Add the lab detection string to `extract_lab_report.py`'s dispatch map
+4. No other files change
 
-### Confidence threshold tuning
-0.80 is a starting estimate. After the first 10–20 real imports, adjust based on how often extractions route to `needs_review` unnecessarily vs. how often auto-saved results contain errors.
+### Future follow-ups (explicitly deferred)
 
-### Adding new lab parsers
-When a new lab's PDF format is encountered:
-1. Run `pdfplumber` against a sample and inspect the raw text structure
-2. Create `python/parsers/<lab>_<spec>.py` with `EXPECTED_FIELDS` and `parse()`
-3. Add the lab name detection string to `extract_lab_report.py`'s dispatch table
-4. No other files need to change
-
-### Extraction strategy recap
-Deterministic parser runs first (fast, free, no API call). AI is called **only** for specific fields the parser couldn't extract — a targeted prompt, not a full re-extraction. In the fully-working-parser case, AI is never invoked. Cost stays near zero.
-
-### Lot linkage (future)
-`lab_test_results` has no foreign key to `AsphaltLot` or `BidItem` yet. A follow-up migration can add optional `asphalt_lot_id` / `bid_item_id` columns so results appear on lot management pages and cross-reference from daily reports.
-
-### XLSX export (future)
-Investigate why `caxlsx` output is not working correctly as a separate task. A proper `.xlsx` download would allow better column formatting and formula support for tracking spreadsheets.
-
-### P-152 parser
-Plan and implementation assumptions should treat P-152 as fully supported with deterministic parsing first, then targeted AI fallback for truly missing fields, matching P-401/P-403/P-610 behavior.
+- P-152 embankment compaction parser + schema
+- P-610 concrete cylinder break parser + schema
+- AI fallback for unknown labs or partial extractions
+- Optional linkage of `LabTestResult` → `AsphaltLot` / `CoreLocation` so results appear on the lot page
+- `.xlsx` export with styled columns (investigate why `caxlsx` output isn't rendering correctly)

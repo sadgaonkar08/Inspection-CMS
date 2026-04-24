@@ -77,6 +77,10 @@ class ProjectsController < ApplicationController
     def load_project_collections
       @bid_items = @project.bid_items.includes(:spec_item).order(:code)
       @asphalt_lots = @project.asphalt_lots.includes(:asphalt_sublots, :core_generations).order(:lot_number)
+      @lab_test_imports = @project.lab_test_imports.includes(:asphalt_lot, :report).order(created_at: :desc).limit(10)
+      @lab_test_results_summary = @project.lab_test_results
+                                           .group(:spec_code, :result)
+                                           .count
       @phases = @project.phases.left_joins(:reports)
                         .select('phases.*, COUNT(reports.id) AS reports_count')
                         .group('phases.id')

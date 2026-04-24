@@ -1,0 +1,15 @@
+#!/bin/bash
+# Wrapper script to ensure environment variables are available to Rails
+
+# Export all environment variables (Azure App Service sets these)
+export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
+export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+
+# Debug: Log what we see (will appear in container logs)
+echo "[rails-with-env] AZURE_TENANT_ID=${AZURE_TENANT_ID}"
+echo "[rails-with-env] AZURE_CLIENT_ID=${AZURE_CLIENT_ID}"
+echo "[rails-with-env] AZURE_CLIENT_SECRET is set: $([ -n "${AZURE_CLIENT_SECRET}" ] && echo 'yes' || echo 'no')"
+
+# Start Rails
+exec /rails/bin/docker-entrypoint ./bin/rails server

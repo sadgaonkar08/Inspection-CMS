@@ -30,9 +30,6 @@
     <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="equipment" data-action="tabs#switch">
       Equipment
     </button>
-    <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="drill-logs" data-action="tabs#switch">
-      Drill Logs
-    </button>
     <button type="button" class="directory-tab-btn" data-tabs-target="tab" data-tab="phases" data-action="tabs#switch">
       Phases
     </button>
@@ -58,10 +55,6 @@
 
   <div class="directory-panel d-none" data-tabs-target="panel" data-tab="equipment">
     <%= render "projects/equipment_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="drill-logs">
-    <%= render "projects/drill_logs_tab" %>
   </div>
 
   <div class="directory-panel d-none" data-tabs-target="panel" data-tab="phases">

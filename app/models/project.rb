@@ -10,7 +10,6 @@ class Project < ApplicationRecord
   has_many :change_orders, dependent: :destroy
   has_many :lab_test_imports, dependent: :destroy
   has_many :lab_test_results, dependent: :destroy
-  has_many :drill_logs, dependent: :destroy
 
   # A "Shortcut" to see which Universal Specs are being used on this job
   has_many :spec_items, through: :bid_items

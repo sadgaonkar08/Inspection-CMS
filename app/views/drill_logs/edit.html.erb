@@ -1,0 +1,10 @@
+<h1>Editing Drill Log: <%= @drill_log.boring_number %></h1>
+
+<%= render "form", drill_log: @drill_log %>
+
+<br>
+
+<div>
+  <%= link_to "View Report", project_drill_log_path(@project, @drill_log) %> |
+  <%= link_to "Back to Drill Logs", project_path(@project, anchor: "drill-logs") %>
+</div>

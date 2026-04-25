@@ -1,0 +1,50 @@
+<div class="d-flex justify-between align-center mb-4">
+  <h3 class="mb-0">Drill Logs (<%= @drill_logs.size %>)</h3>
+  <%= link_to "+ New Drill Log", new_project_drill_log_path(@project), class: "btn btn-primary" %>
+</div>
+
+<div class="table-card">
+  <% cache [@project, "project_drill_logs_tab", @drill_logs.cache_key_with_version] do %>
+    <table class="modern-table dashboard-table">
+      <thead>
+        <tr>
+          <th>Boring Number</th>
+          <th>Project Name</th>
+          <th>Date Started</th>
+          <th>Total Depth</th>
+          <th>Layers</th>
+          <th>Samples</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if @drill_logs.any? %>
+          <% @drill_logs.each do |drill_log| %>
+            <tr>
+              <td class="font-bold text-primary"><%= drill_log.boring_number %></td>
+              <td><%= drill_log.project_name.presence || "—" %></td>
+              <td><%= drill_log.date_started&.strftime("%m/%d/%Y") || "—" %></td>
+              <td><%= drill_log.total_depth.present? ? "#{drill_log.total_depth} ft" : "—" %></td>
+              <td class="text-center"><%= drill_log.total_layers %></td>
+              <td class="text-center"><%= drill_log.total_samples %></td>
+              <td class="text-right">
+                <%= link_to "View", project_drill_log_path(@project, drill_log), class: "link-primary mr-3" %>
+                <%= link_to "Edit", edit_project_drill_log_path(@project, drill_log), class: "link-primary mr-3" %>
+                <%= link_to "Delete",
+                    project_drill_log_path(@project, drill_log),
+                    class: "btn-clear inline-danger p-0",
+                    data: { turbo_method: :delete, turbo_confirm: "Delete drill log #{drill_log.boring_number}?" } %>
+              </td>
+            </tr>
+          <% end %>
+        <% else %>
+          <tr>
+            <td colspan="7" class="table-empty">
+              No drill logs yet. Click "+ New Drill Log" to add a boring log to this project.
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

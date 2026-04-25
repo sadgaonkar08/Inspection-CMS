@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bore Log Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f2efe8;
+  --paper: #fff;
+  --ink: #111;
+  --mid: #555;
+  --light: #999;
+  --rule: #bbb;
+  --accent: #b84c0e;
+  --blue: #1a5fa8;
+  --panel: #e8e4db;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 13px; }
+
+.shell { display: grid; grid-template-columns: 340px 1fr; height: 100vh; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar { background: var(--panel); border-right: 2px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-header { background: var(--ink); color: #fff; padding: 12px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 600; flex-shrink: 0; }
+.sidebar-tabs { display: flex; border-bottom: 2px solid var(--ink); flex-shrink: 0; }
+.tab-btn { flex: 1; padding: 8px 4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; background: var(--panel); border: none; border-right: 1px solid var(--rule); cursor: pointer; color: var(--mid); transition: all 0.1s; }
+.tab-btn:last-child { border-right: none; }
+.tab-btn.active { background: var(--paper); color: var(--ink); }
+.tab-panel { display: none; overflow-y: auto; flex: 1; padding: 14px; }
+.tab-panel.active { display: block; }
+
+.fg { margin-bottom: 10px; }
+.fg label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--mid); margin-bottom: 3px; }
+.fg input, .fg select, .fg textarea { width: 100%; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; padding: 5px 8px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); outline: none; }
+.fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--blue); }
+.fg textarea { resize: vertical; min-height: 60px; }
+.fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fg-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+
+.section-title { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--rule); padding-bottom: 4px; margin-bottom: 10px; margin-top: 14px; }
+.section-title:first-child { margin-top: 0; }
+
+.layer-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.layer-card { background: var(--paper); border: 1px solid var(--rule); padding: 8px 10px; cursor: pointer; display: flex; gap: 8px; align-items: flex-start; transition: border-color 0.1s; }
+.layer-card:hover { border-color: var(--blue); }
+.layer-card.active { border-color: var(--accent); background: #fff8f5; }
+.layer-card-depth { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--accent); min-width: 55px; flex-shrink: 0; }
+.layer-card-info { flex: 1; min-width: 0; }
+.layer-card-mat { font-size: 11px; font-weight: 600; }
+.layer-card-desc { font-size: 10px; color: var(--mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer-card-del { background: none; border: none; color: var(--light); cursor: pointer; font-size: 15px; padding: 0 2px; line-height: 1; }
+.layer-card-del:hover { color: #c33; }
+
+.btn-add { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px; border: 1.5px dashed var(--blue); background: transparent; color: var(--blue); cursor: pointer; font-weight: 600; transition: all 0.1s; }
+.btn-add:hover { background: #e8f0fc; }
+
+.edit-form { background: var(--paper); border: 1.5px solid var(--accent); padding: 12px; margin-bottom: 10px; }
+.edit-form-title { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.btn-save { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px; border: 1.5px solid var(--accent); background: var(--accent); color: white; cursor: pointer; font-weight: 600; margin-top: 6px; }
+.btn-save:hover { background: #9a3d08; }
+
+/* PREVIEW */
+.preview-panel { overflow: auto; background: #999; padding: 20px; display: flex; flex-direction: column; align-items: flex-start; }
+.preview-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+.btn-action { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 7px 14px; border: 1.5px solid #fff; background: rgba(255,255,255,0.15); color: #fff; cursor: pointer; font-weight: 600; transition: all 0.1s; }
+.btn-action:hover { background: rgba(255,255,255,0.3); }
+.btn-action.primary { background: #fff; color: var(--ink); }
+.btn-action.primary:hover { background: #eee; }
+
+/* BORE LOG DOCUMENT */
+.borelog { background: white; width: 1100px; box-shadow: 0 4px 32px rgba(0,0,0,0.35); font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; padding: 8px; }
+
+.bl-header { border: 1.5px solid #000; margin-bottom: 0; }
+.bl-header-row { display: flex; align-items: baseline; gap: 4px; margin-bottom: 3px; font-size: 11px; flex-wrap: wrap; }
+.bl-header-row:last-child { margin-bottom: 0; }
+.bl-label { font-weight: 700; white-space: nowrap; font-size: 11px; }
+.bl-val { border-bottom: 1px solid #000; min-width: 40px; flex: 1; padding: 0 3px; font-size: 11px; }
+
+/* Column grid: depth | sampleType | blowCount | graphicLog | description | LL | PI | %G | %S | %F | Rec | MC | PID | Remarks */
+.bl-grid { display: grid; grid-template-columns: 42px 54px 62px 48px 1fr 42px 42px 44px 44px 44px 52px 54px 44px 80px; }
+
+.bl-col-headers { border: 1.5px solid #000; border-top: none; }
+.bl-col-hdr-row { display: grid; grid-template-columns: 42px 54px 62px 48px 1fr 42px 42px 44px 44px 44px 52px 54px 44px 80px; min-height: 72px; }
+.bl-col-hdr { border-right: 1px solid #000; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px 2px; }
+.bl-col-hdr:last-child { border-right: none; }
+.bl-col-hdr .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9.5px; font-weight: 700; text-transform: uppercase; line-height: 1.3; }
+.bl-col-hdr .hz { font-size: 10px; font-weight: 700; text-transform: uppercase; line-height: 1.3; text-align: center; }
+
+.bl-body { border-left: 1.5px solid #000; border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; }
+.bl-row { display: grid; grid-template-columns: 42px 54px 62px 48px 1fr 42px 42px 44px 44px 44px 52px 54px 44px 80px; border-bottom: 1px solid #e0e0e0; }
+.bl-row.depth5 { border-top: 1.5px solid #000; }
+.bl-row.layer-start-solid { border-top: 2px solid #000; }
+.bl-row.layer-start-dashed { border-top: 2px dashed #555; }
+.bl-row.layer-start-wavy { border-top: 3px solid transparent; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='3'%3E%3Cpath d='M0,1.5 Q5,0 10,1.5 T20,1.5' stroke='%23000' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: repeat-x; background-size: 20px 3px; background-position: top; }
+
+.bl-cell { border-right: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 10.5px; text-align: center; padding: 2px 3px; min-height: 26px; }
+.bl-cell:last-child { border-right: none; }
+.bl-cell.left { justify-content: flex-start; text-align: left; padding: 3px 6px; }
+.bl-cell.depth { font-weight: 700; font-size: 12px; align-items: flex-start; padding-top: 2px; }
+.bl-cell.depth .tick { width: 7px; height: 1px; background: #999; margin-top: 12px; }
+
+.graphic-fill { width: 100%; height: 100%; min-height: 26px; }
+.pat-sp  { background-image: radial-gradient(circle, #777 1.2px, transparent 1.2px); background-size: 5px 5px; }
+.pat-sm  { background-image: radial-gradient(circle, #888 1px, transparent 1px); background-size: 4px 4px; background-color: #f5f5f5; }
+.pat-gm  { background-image: radial-gradient(ellipse, #555 3px, transparent 3px); background-size: 11px 9px; background-color: #ebebeb; }
+.pat-gw  { background-image: radial-gradient(ellipse, #444 3px, transparent 3px), radial-gradient(circle, #aaa 1px, transparent 1px); background-size: 12px 10px, 5px 5px; background-color: #e8e8e8; }
+.pat-cl  { background-image: repeating-linear-gradient(0deg, transparent, transparent 4px, #aaa 4px, #aaa 5px); }
+.pat-ch  { background-image: repeating-linear-gradient(0deg, transparent, transparent 3px, #999 3px, #999 4px); background-color: #f0f0f0; }
+.pat-ml  { background-image: repeating-linear-gradient(90deg, transparent, transparent 5px, #bbb 5px, #bbb 6px); }
+.pat-mh  { background-image: repeating-linear-gradient(90deg, transparent, transparent 4px, #aaa 4px, #aaa 5px); background-color: #f5f5f5; }
+.pat-fill { background: #888; }
+.pat-pcc { background: repeating-linear-gradient(45deg, #aaa, #aaa 3px, #ddd 3px, #ddd 8px); }
+.pat-ab  { background-image: radial-gradient(circle, #999 1px, transparent 1px); background-size: 4px 4px; background-color: #ddd; }
+
+@media print {
+  body { background: white; }
+  .shell { display: block; height: auto; }
+  .sidebar, .preview-actions { display: none !important; }
+  .preview-panel { background: white; padding: 0; display: block; }
+  .borelog { box-shadow: none; width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">&#9646; Bore Log Builder</div>
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('header')">Header</button>
+      <button class="tab-btn" onclick="switchTab('layers')">Layers</button>
+      <button class="tab-btn" onclick="switchTab('samples')">Samples</button>
+    </div>
+
+    <!-- HEADER TAB -->
+    <div id="tab-header" class="tab-panel active">
+      <div class="section-title">Project Info</div>
+      <div class="fg"><label>Client</label><input id="h-client" oninput="render()" placeholder="Client name"></div>
+      <div class="fg"><label>Project Name</label><input id="h-projname" oninput="render()" placeholder="Project name"></div>
+      <div class="fg"><label>Project Number</label><input id="h-projnum" oninput="render()" placeholder="Project number"></div>
+      <div class="fg"><label>Project Location</label><input id="h-projloc" oninput="render()" placeholder="Location"></div>
+      <div class="fg-row">
+        <div class="fg"><label>Date Started</label><input id="h-datestart" type="date" oninput="render()"></div>
+        <div class="fg"><label>Completed</label><input id="h-datend" type="date" oninput="render()"></div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label>Ground Elev (ft)</label><input id="h-elev" oninput="render()" placeholder="0.0"></div>
+        <div class="fg"><label>Hole Size</label><input id="h-holesize" oninput="render()" placeholder='e.g. 8"'></div>
+      </div>
+      <div class="section-title">Drilling</div>
+      <div class="fg"><label>Drilling Contractor</label><input id="h-contractor" oninput="render()" placeholder="Contractor name"></div>
+      <div class="fg">
+        <label>Drilling Method</label>
+        <select id="h-method" oninput="render()">
+          <option value="">— Select —</option>
+          <option value="Mud Rotary">Mud Rotary</option>
+          <option value="Hollow Stem Auger">Hollow Stem Auger</option>
+          <option value="Solid Stem Auger">Solid Stem Auger</option>
+          <option value="Air Rotary">Air Rotary</option>
+          <option value="Diamond Core">Diamond Core</option>
+          <option value="Dynamic Cone">Dynamic Cone / Hand Driven</option>
+        </select>
+      </div>
+      <div class="fg"><label>Drill Rig / Model</label><input id="h-rig" oninput="render()" placeholder="e.g. GTech Drill GT8"></div>
+      <div class="fg"><label>Hammer Weight (lbs)</label><input id="h-hammer" oninput="render()" placeholder="140"></div>
+      <div class="fg">
+        <label>Sampling Device</label>
+        <select id="h-sampler" oninput="render()">
+          <option value="">— Select —</option>
+          <option value="Split Spoon 2-inch">Split Spoon 2-inch</option>
+          <option value="Split Spoon 2.5-inch">Split Spoon 2.5-inch</option>
+          <option value="Standard California Sampler">Standard California Sampler</option>
+          <option value="Modified California Sampler">Modified California Sampler</option>
+          <option value="Shelby Tube">Shelby Tube</option>
+          <option value="Piston Sampler">Piston Sampler</option>
+        </select>
+      </div>
+      <div class="fg"><label>Casing Size</label><input id="h-casing" oninput="render()" placeholder='e.g. 8-inch'></div>
+      <div class="section-title">Personnel &amp; Water</div>
+      <div class="fg-row">
+        <div class="fg"><label>Logged By</label><input id="h-logged" oninput="render()" placeholder="Initials"></div>
+        <div class="fg"><label>Checked By</label><input id="h-checked" oninput="render()" placeholder="Initials"></div>
+      </div>
+      <div class="fg"><label>Water Level at Time of Drilling</label><input id="h-wl1" oninput="render()" placeholder="Not Encountered"></div>
+      <div class="fg"><label>Water Level at End of Drilling</label><input id="h-wl2" oninput="render()" placeholder="Not Encountered"></div>
+      <div class="fg-row">
+        <div class="fg"><label>Total Depth (ft)</label><input id="h-totaldepth" oninput="render()" placeholder=""></div>
+        <div class="fg"><label>Overburden (ft)</label><input id="h-overburden" oninput="render()" placeholder=""></div>
+      </div>
+      <div class="fg"><label>Notes</label><textarea id="h-notes" oninput="render()" placeholder="General notes..."></textarea></div>
+    </div>
+
+    <!-- LAYERS TAB -->
+    <div id="tab-layers" class="tab-panel">
+      <div class="section-title">Soil / Material Layers</div>
+      <div id="layer-list" class="layer-list"></div>
+      <button class="btn-add" onclick="addLayer()">+ Add Layer</button>
+      <div id="layer-edit-form" style="display:none;margin-top:12px">
+        <div class="edit-form">
+          <div class="edit-form-title">
+            <span id="layer-form-title">Edit Layer</span>
+            <span style="cursor:pointer;color:var(--mid)" onclick="closeLayerForm()">&#10005;</span>
+          </div>
+          <div class="fg-row">
+            <div class="fg"><label>From Depth (ft)</label><input id="lf-from" type="number" step="0.5" placeholder="0.0"></div>
+            <div class="fg"><label>To Depth (ft)</label><input id="lf-to" type="number" step="0.5" placeholder="5.0"></div>
+          </div>
+          <div class="fg">
+            <label>USCS Symbol</label>
+            <select id="lf-uscs">
+              <option value="">— None / Other —</option>
+              <optgroup label="Surface / Fill">
+                <option value="PCC">PCC – Portland Cement Concrete</option>
+                <option value="AB">AB – Aggregate Base</option>
+                <option value="FILL">FILL</option>
+                <option value="TS">TS – Topsoil</option>
+              </optgroup>
+              <optgroup label="Gravels">
+                <option value="GW">GW – Well-graded GRAVEL</option>
+                <option value="GP">GP – Poorly graded GRAVEL</option>
+                <option value="GW-GM">GW-GM – Well-graded GRAVEL w/ SILT</option>
+                <option value="GW-GC">GW-GC – Well-graded GRAVEL w/ CLAY</option>
+                <option value="GP-GM">GP-GM – Poorly graded GRAVEL w/ SILT</option>
+                <option value="GP-GC">GP-GC – Poorly graded GRAVEL w/ CLAY</option>
+                <option value="GM">GM – SILTY GRAVEL</option>
+                <option value="GC">GC – CLAYEY GRAVEL</option>
+                <option value="GC-GM">GC-GM – SILTY, CLAYEY GRAVEL</option>
+              </optgroup>
+              <optgroup label="Sands">
+                <option value="SW">SW – Well-graded SAND</option>
+                <option value="SP">SP – Poorly graded SAND</option>
+                <option value="SW-SM">SW-SM – Well-graded SAND w/ SILT</option>
+                <option value="SW-SC">SW-SC – Well-graded SAND w/ CLAY</option>
+                <option value="SP-SM">SP-SM – Poorly graded SAND w/ SILT</option>
+                <option value="SP-SC">SP-SC – Poorly graded SAND w/ CLAY</option>
+                <option value="SM">SM – SILTY SAND</option>
+                <option value="SC">SC – CLAYEY SAND</option>
+                <option value="SC-SM">SC-SM – SILTY, CLAYEY SAND</option>
+              </optgroup>
+              <optgroup label="Fine-Grained">
+                <option value="CL">CL – Lean CLAY</option>
+                <option value="CL-ML">CL-ML – Sandy Silty CLAY</option>
+                <option value="ML">ML – SILT</option>
+                <option value="OL">OL – Organic lean CLAY</option>
+                <option value="CH">CH – Fat CLAY</option>
+                <option value="MH">MH – Elastic SILT</option>
+                <option value="OH">OH – Organic fat CLAY</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Material Description</label>
+            <textarea id="lf-desc" rows="4" placeholder="e.g. Moist, Brown, Very Dense, Well-Graded GRAVEL, Trace Silt, Some Fine to Medium Sand (GW-GM)"></textarea>
+          </div>
+          <div class="fg">
+            <label>Boundary at Top of This Layer</label>
+            <select id="lf-change">
+              <option value="solid">&#8212; Solid (Definite Material Change)</option>
+              <option value="dashed">- - - Dashed (Estimated Material Change)</option>
+              <option value="wavy">~ ~ ~ Wavy (Soil/Rock Boundary)</option>
+            </select>
+          </div>
+          <button class="btn-save" onclick="saveLayer()">Save Layer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAMPLES TAB -->
+    <div id="tab-samples" class="tab-panel">
+      <div class="section-title">Sample / Test Entries</div>
+      <div id="sample-list" class="layer-list"></div>
+      <button class="btn-add" onclick="addSample()">+ Add Sample</button>
+      <div id="sample-edit-form" style="display:none;margin-top:12px">
+        <div class="edit-form">
+          <div class="edit-form-title">
+            <span id="sample-form-title">Edit Sample</span>
+            <span style="cursor:pointer;color:var(--mid)" onclick="closeSampleForm()">&#10005;</span>
+          </div>
+          <div class="fg-row">
+            <div class="fg"><label>Depth (ft)</label><input id="sf-depth" type="number" step="0.5" placeholder="5.0"></div>
+            <div class="fg"><label>Sample ID</label><input id="sf-id" placeholder="S-1"></div>
+          </div>
+          <div class="fg">
+            <label>Sample Type</label>
+            <select id="sf-type">
+              <option value="SPT">SPT – Standard Penetration Test</option>
+              <option value="CA">Standard California Sampler</option>
+              <option value="MCA">Modified California Sampler</option>
+              <option value="ST">Shelby Tube</option>
+              <option value="PS">Piston Sampler</option>
+              <option value="GB">Grab / Bulk Sample</option>
+            </select>
+          </div>
+          <div class="fg"><label>Blow Counts (N Values)</label><input id="sf-blows" placeholder="e.g. 22-36-47 (83)"></div>
+          <div class="fg"><label>Sample Description / Note</label><input id="sf-desc" placeholder="e.g. S-2: Medium to Coarse Sand to 20-ft"></div>
+          <div class="fg-row3">
+            <div class="fg"><label>Liquid Limit</label><input id="sf-ll" type="number" step="0.1" placeholder="—"></div>
+            <div class="fg"><label>Plasticity Idx</label><input id="sf-pi" type="number" step="0.1" placeholder="—"></div>
+            <div class="fg"><label>% Gravel</label><input id="sf-gravel" type="number" step="0.1" placeholder="—"></div>
+          </div>
+          <div class="fg-row3">
+            <div class="fg"><label>% Sand</label><input id="sf-sand" type="number" step="0.1" placeholder="—"></div>
+            <div class="fg"><label>% Fines</label><input id="sf-fines" type="number" step="0.1" placeholder="—"></div>
+            <div class="fg"><label>Recovery (in)</label><input id="sf-rec" type="number" step="1" placeholder="—"></div>
+          </div>
+          <div class="fg-row">
+            <div class="fg"><label>Moisture Content (%)</label><input id="sf-mc" type="number" step="0.1" placeholder="—"></div>
+            <div class="fg"><label>PID (PPM)</label><input id="sf-pid" type="number" step="0.1" placeholder="—"></div>
+          </div>
+          <div class="fg"><label>Remarks</label><input id="sf-remarks" placeholder="Remarks / tests run"></div>
+          <button class="btn-save" onclick="saveSample()">Save Sample</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="preview-panel">
+    <div class="preview-actions">
+      <button class="btn-action primary" onclick="window.print()">&#128424; Print / Save PDF</button>
+      <button class="btn-action" onclick="exportJSON()">&#8595; Export JSON</button>
+      <button class="btn-action" onclick="importJSON()">&#8593; Import JSON</button>
+    </div>
+    <div class="borelog" id="borelog"></div>
+  </div>
+</div>
+
+<script>
+let state = { layers: [], samples: [] };
+let editingLayerIdx = null;
+let editingSampleIdx = null;
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['header','layers','samples'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function getH(id) { return (document.getElementById('h-'+id)||{}).value || ''; }
+
+function fmtDate(d) {
+  if (!d) return '';
+  const p = d.split('-');
+  return p.length === 3 ? p[1]+'/'+p[2]+'/'+p[0] : d;
+}
+
+// ── LAYERS ───────────────────────────────────────
+function renderLayerList() {
+  const el = document.getElementById('layer-list');
+  if (!state.layers.length) { el.innerHTML = '<div style="color:var(--light);font-size:11px;text-align:center;padding:8px">No layers yet</div>'; return; }
+  el.innerHTML = state.layers.map((l,i) => `
+    <div class="layer-card ${editingLayerIdx===i?'active':''}" onclick="editLayer(${i})">
+      <div class="layer-card-depth">${l.from}–${l.to} ft</div>
+      <div class="layer-card-info">
+        <div class="layer-card-mat">${l.uscs||'—'}</div>
+        <div class="layer-card-desc">${l.desc||'No description'}</div>
+      </div>
+      <button class="layer-card-del" onclick="event.stopPropagation();deleteLayer(${i})">&#215;</button>
+    </div>`).join('');
+}
+function addLayer() {
+  editingLayerIdx = null;
+  document.getElementById('lf-from').value = state.layers.length ? state.layers[state.layers.length-1].to : 0;
+  document.getElementById('lf-to').value = '';
+  document.getElementById('lf-uscs').value = '';
+  document.getElementById('lf-desc').value = '';
+  document.getElementById('lf-change').value = 'solid';
+  document.getElementById('layer-form-title').textContent = 'New Layer';
+  document.getElementById('layer-edit-form').style.display = 'block';
+  switchTab('layers');
+}
+function editLayer(i) {
+  editingLayerIdx = i;
+  const l = state.layers[i];
+  document.getElementById('lf-from').value = l.from;
+  document.getElementById('lf-to').value = l.to;
+  document.getElementById('lf-uscs').value = l.uscs||'';
+  document.getElementById('lf-desc').value = l.desc||'';
+  document.getElementById('lf-change').value = l.change||'solid';
+  document.getElementById('layer-form-title').textContent = 'Edit Layer';
+  document.getElementById('layer-edit-form').style.display = 'block';
+  renderLayerList();
+}
+function saveLayer() {
+  const l = {
+    from: parseFloat(document.getElementById('lf-from').value)||0,
+    to: parseFloat(document.getElementById('lf-to').value)||0,
+    uscs: document.getElementById('lf-uscs').value,
+    desc: document.getElementById('lf-desc').value,
+    change: document.getElementById('lf-change').value,
+  };
+  if (editingLayerIdx !== null) state.layers[editingLayerIdx] = l;
+  else state.layers.push(l);
+  state.layers.sort((a,b)=>a.from-b.from);
+  editingLayerIdx = null;
+  document.getElementById('layer-edit-form').style.display = 'none';
+  renderLayerList(); render();
+}
+function deleteLayer(i) {
+  state.layers.splice(i,1);
+  if (editingLayerIdx===i) { document.getElementById('layer-edit-form').style.display='none'; editingLayerIdx=null; }
+  renderLayerList(); render();
+}
+function closeLayerForm() { editingLayerIdx=null; document.getElementById('layer-edit-form').style.display='none'; renderLayerList(); }
+
+// ── SAMPLES ──────────────────────────────────────
+function renderSampleList() {
+  const el = document.getElementById('sample-list');
+  if (!state.samples.length) { el.innerHTML = '<div style="color:var(--light);font-size:11px;text-align:center;padding:8px">No samples yet</div>'; return; }
+  el.innerHTML = state.samples.map((s,i) => `
+    <div class="layer-card ${editingSampleIdx===i?'active':''}" onclick="editSample(${i})">
+      <div class="layer-card-depth">${s.depth} ft</div>
+      <div class="layer-card-info">
+        <div class="layer-card-mat">${s.id||'—'} – ${s.type||'SPT'}</div>
+        <div class="layer-card-desc">${s.blows||''} ${s.desc||''}</div>
+      </div>
+      <button class="layer-card-del" onclick="event.stopPropagation();deleteSample(${i})">&#215;</button>
+    </div>`).join('');
+}
+function addSample() {
+  editingSampleIdx = null;
+  ['depth','id','blows','desc','ll','pi','gravel','sand','fines','rec','mc','pid','remarks'].forEach(f => { const e=document.getElementById('sf-'+f); if(e) e.value=''; });
+  document.getElementById('sf-type').value = 'SPT';
+  document.getElementById('sample-form-title').textContent = 'New Sample';
+  document.getElementById('sample-edit-form').style.display = 'block';
+  switchTab('samples');
+}
+function editSample(i) {
+  editingSampleIdx = i;
+  const s = state.samples[i];
+  ['depth','id','blows','desc','ll','pi','gravel','sand','fines','rec','mc','pid','remarks'].forEach(f => { const e=document.getElementById('sf-'+f); if(e) e.value=s[f]||''; });
+  document.getElementById('sf-type').value = s.type||'SPT';
+  document.getElementById('sample-form-title').textContent = 'Edit Sample';
+  document.getElementById('sample-edit-form').style.display = 'block';
+  renderSampleList();
+}
+function saveSample() {
+  const s = {};
+  ['depth','id','type','blows','desc','ll','pi','gravel','sand','fines','rec','mc','pid','remarks'].forEach(f => { const e=document.getElementById('sf-'+f); s[f]=e?e.value:''; });
+  s.depth = parseFloat(s.depth)||0;
+  if (editingSampleIdx !== null) state.samples[editingSampleIdx] = s;
+  else state.samples.push(s);
+  state.samples.sort((a,b)=>a.depth-b.depth);
+  editingSampleIdx = null;
+  document.getElementById('sample-edit-form').style.display = 'none';
+  renderSampleList(); render();
+}
+function deleteSample(i) {
+  state.samples.splice(i,1);
+  if (editingSampleIdx===i) { document.getElementById('sample-edit-form').style.display='none'; editingSampleIdx=null; }
+  renderSampleList(); render();
+}
+function closeSampleForm() { editingSampleIdx=null; document.getElementById('sample-edit-form').style.display='none'; renderSampleList(); }
+
+// ── HELPERS ───────────────────────────────────────
+function patternClass(uscs) {
+  if (!uscs) return '';
+  const u = uscs.toUpperCase();
+  if (u==='PCC') return 'pat-pcc';
+  if (u==='AB') return 'pat-ab';
+  if (u==='FILL') return 'pat-fill';
+  if (u.startsWith('GW')) return 'pat-gw';
+  if (u.startsWith('GP')||u==='GM'||u==='GC'||u==='GC-GM') return 'pat-gm';
+  if (u==='SW'||u==='SP') return 'pat-sp';
+  if (u.startsWith('SW')||u.startsWith('SP')||u==='SM'||u==='SC'||u==='SC-SM') return 'pat-sm';
+  if (u==='CH') return 'pat-ch';
+  if (u.startsWith('CL')||u.startsWith('OL')||u.startsWith('OH')) return 'pat-cl';
+  if (u==='MH') return 'pat-mh';
+  if (u.startsWith('ML')) return 'pat-ml';
+  return '';
+}
+
+function sampleSVG(type) {
+  const t = type||'SPT';
+  if (t==='SPT') return `<svg width="26" height="24" viewBox="0 0 26 24" style="flex-shrink:0"><rect x="1" y="1" width="24" height="22" fill="none" stroke="#000" stroke-width="1.5"/><line x1="1" y1="1" x2="25" y2="23" stroke="#000" stroke-width="1.5"/><line x1="25" y1="1" x2="1" y2="23" stroke="#000" stroke-width="1.5"/></svg>`;
+  if (t==='CA')  return `<svg width="26" height="24" viewBox="0 0 26 24" style="flex-shrink:0"><rect x="1" y="1" width="24" height="22" fill="none" stroke="#000" stroke-width="1.5"/><line x1="13" y1="1" x2="1" y2="23" stroke="#000" stroke-width="1.5"/><line x1="13" y1="1" x2="25" y2="23" stroke="#000" stroke-width="1.5"/></svg>`;
+  if (t==='MCA') return `<svg width="26" height="24" viewBox="0 0 26 24" style="flex-shrink:0"><rect x="1" y="1" width="24" height="22" fill="none" stroke="#000" stroke-width="1.5"/><line x1="13" y1="1" x2="1" y2="23" stroke="#000" stroke-width="1.5"/><line x1="13" y1="1" x2="25" y2="23" stroke="#000" stroke-width="1.5"/><line x1="1" y1="23" x2="25" y2="23" stroke="#000" stroke-width="1.5"/></svg>`;
+  return `<svg width="26" height="24" viewBox="0 0 26 24" style="flex-shrink:0"><rect x="1" y="1" width="24" height="22" fill="none" stroke="#000" stroke-width="1.5"/><line x1="1" y1="1" x2="25" y2="23" stroke="#000" stroke-width="1.5"/><line x1="25" y1="1" x2="1" y2="23" stroke="#000" stroke-width="1.5"/></svg>`;
+}
+
+// ── RENDER ────────────────────────────────────────
+function render() {
+  const layers = state.layers;
+  const samples = state.samples;
+  const maxD = Math.max(
+    layers.length ? Math.max(...layers.map(l=>l.to)) : 0,
+    samples.length ? Math.max(...samples.map(s=>s.depth+3)) : 0,
+    20
+  );
+  const totalDepth = Math.ceil(maxD/5)*5;
+
+  // Header
+  const h_client=getH('client'), h_projname=getH('projname'), h_projnum=getH('projnum'), h_projloc=getH('projloc');
+  const h_datestart=getH('datestart'), h_datend=getH('datend'), h_elev=getH('elev'), h_holesize=getH('holesize');
+  const h_contractor=getH('contractor'), h_method=getH('method'), h_rig=getH('rig'), h_hammer=getH('hammer');
+  const h_sampler=getH('sampler'), h_casing=getH('casing'), h_logged=getH('logged'), h_checked=getH('checked');
+  const h_wl1=getH('wl1'), h_wl2=getH('wl2'), h_totaldepth=getH('totaldepth'), h_overburden=getH('overburden');
+  const h_notes=getH('notes');
+
+  let html = `
+  <div class="bl-header">
+    <div style="background:#000;color:#fff;text-align:center;padding:5px 0;font-weight:700;font-size:14px;letter-spacing:0.1em">BORING LOG</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="padding:6px 10px;border-right:1px solid #000;border-bottom:1px solid #000">
+        <div class="bl-header-row"><span class="bl-label">CLIENT:</span><span class="bl-val">${h_client}</span></div>
+        <div class="bl-header-row"><span class="bl-label">PROJECT NUMBER:</span><span class="bl-val">${h_projnum}</span></div>
+        <div class="bl-header-row">
+          <span class="bl-label">DATE STARTED:</span><span class="bl-val" style="min-width:80px">${fmtDate(h_datestart)}</span>
+          <span class="bl-label" style="margin-left:10px">COMPLETED:</span><span class="bl-val">${fmtDate(h_datend)}</span>
+        </div>
+        <div class="bl-header-row"><span class="bl-label">DRILLING CONTRACTOR:</span><span class="bl-val">${h_contractor}</span></div>
+        <div class="bl-header-row">
+          <span class="bl-label">DRILLING METHOD:</span><span class="bl-val">${h_method}${h_rig?' '+h_rig:''}</span>
+          <span class="bl-label" style="margin-left:10px;white-space:nowrap">HAMMER WEIGHT:</span><span class="bl-val" style="min-width:70px">${h_hammer?h_hammer+'-lbs':''}</span>
+        </div>
+        <div class="bl-header-row">
+          <span class="bl-label">SAMPLING DEVICE:</span><span class="bl-val">${h_sampler}</span>
+          <span class="bl-label" style="margin-left:10px;white-space:nowrap">CASING SIZE:</span><span class="bl-val" style="min-width:60px">${h_casing}</span>
+        </div>
+        <div class="bl-header-row">
+          <span class="bl-label">LOGGED BY:</span><span class="bl-val" style="min-width:60px">${h_logged}</span>
+          <span class="bl-label" style="margin-left:10px">CHECKED BY:</span><span class="bl-val">${h_checked}</span>
+        </div>
+        ${h_notes?`<div class="bl-header-row"><span class="bl-label">NOTES:</span><span class="bl-val">${h_notes}</span></div>`:''}
+      </div>
+      <div style="padding:6px 10px;border-bottom:1px solid #000">
+        <div class="bl-header-row"><span class="bl-label">PROJECT NAME:</span><span class="bl-val">${h_projname}</span></div>
+        <div class="bl-header-row"><span class="bl-label">PROJECT LOCATION:</span><span class="bl-val">${h_projloc}</span></div>
+        <div class="bl-header-row">
+          <span class="bl-label">GROUND ELEVATION:</span><span class="bl-val" style="min-width:60px">${h_elev}</span>
+          <span class="bl-label" style="margin-left:10px">HOLE SIZE:</span><span class="bl-val">${h_holesize}</span>
+        </div>
+        <div class="bl-header-row" style="margin-top:4px"><span class="bl-label">GROUND WATER LEVELS:</span></div>
+        <div class="bl-header-row" style="gap:6px;align-items:center">
+          <svg width="20" height="20" viewBox="0 0 20 20" style="flex-shrink:0"><polygon points="10,3 18,16 2,16" fill="none" stroke="#000" stroke-width="1.5"/><line x1="10" y1="16" x2="10" y2="20" stroke="#000" stroke-width="1.5"/></svg>
+          <span class="bl-label">AT TIME OF DRILLING:</span><span class="bl-val">${h_wl1||'Not Encountered'}</span>
+        </div>
+        <div class="bl-header-row" style="gap:6px;align-items:center">
+          <svg width="20" height="20" viewBox="0 0 20 20" style="flex-shrink:0"><polygon points="10,3 18,16 2,16" fill="#000" stroke="#000" stroke-width="1.5"/><line x1="10" y1="16" x2="10" y2="20" stroke="#000" stroke-width="1.5"/></svg>
+          <span class="bl-label">AT END OF DRILLING:</span><span class="bl-val">${h_wl2||'Not Encountered'}</span>
+        </div>
+        <div class="bl-header-row" style="margin-top:6px">
+          <span class="bl-label">Total Depth of Hole:</span><span class="bl-val" style="min-width:50px">${h_totaldepth}</span>
+          <span class="bl-label" style="margin-left:10px">Thickness of Overburden:</span><span class="bl-val">${h_overburden}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Column headers
+  html += `
+  <div class="bl-col-headers">
+    <div class="bl-col-hdr-row">
+      <div class="bl-col-hdr"><span class="vt">DEPTH (ft)</span></div>
+      <div class="bl-col-hdr"><span class="vt">SAMPLE TYPE NUMBER</span></div>
+      <div class="bl-col-hdr"><span class="vt">BLOW COUNT (N VALUES)</span></div>
+      <div class="bl-col-hdr"><span class="vt">GRAPHIC LOG</span></div>
+      <div class="bl-col-hdr"><span class="hz">MATERIAL DESCRIPTION</span></div>
+      <div class="bl-col-hdr"><span class="vt">LIQUID LIMIT</span></div>
+      <div class="bl-col-hdr"><span class="vt">PLASTICITY INDEX</span></div>
+      <div class="bl-col-hdr"><span class="vt">% GRAVEL</span></div>
+      <div class="bl-col-hdr"><span class="vt">% SAND</span></div>
+      <div class="bl-col-hdr"><span class="vt">% FINES</span></div>
+      <div class="bl-col-hdr"><span class="vt">RECOVERY (IN)</span></div>
+      <div class="bl-col-hdr"><span class="vt">MOISTURE CONTENT (%)</span></div>
+      <div class="bl-col-hdr"><span class="vt">PID (PPM)</span></div>
+      <div class="bl-col-hdr"><span class="hz">REMARKS</span></div>
+    </div>
+  </div>`;
+
+  // Body — render 1-ft rows
+  html += `<div class="bl-body">`;
+  const shownLayers = new Set();
+  const sampleMap = {};
+  samples.forEach(s => { const k = Math.floor(s.depth); if (!sampleMap[k]) sampleMap[k] = []; sampleMap[k].push(s); });
+
+  // Layer boundary lookup
+  const layerChangeAt = {};
+  layers.forEach(l => { layerChangeAt[l.from] = l.change; });
+
+  function layerAtDepth(d) { return layers.find(l => d >= l.from && d < l.to) || null; }
+
+  for (let d = 0; d < totalDepth; d++) {
+    const layer = layerAtDepth(d);
+    const rowSamples = sampleMap[d] || [];
+    const isMajor5 = d > 0 && d % 5 === 0;
+    const isLayerBoundary = layer && layer.from === d && d > 0;
+    const changeType = isLayerBoundary ? (layerChangeAt[d]||'solid') : null;
+
+    let rowCls = 'bl-row';
+    if (isMajor5) rowCls += ' depth5';
+    if (changeType === 'solid') rowCls += ' layer-start-solid';
+    else if (changeType === 'dashed') rowCls += ' layer-start-dashed';
+    else if (changeType === 'wavy') rowCls += ' layer-start-wavy';
+
+    const pat = layer ? patternClass(layer.uscs) : '';
+    const showDesc = layer && !shownLayers.has(layer);
+    if (layer) shownLayers.add(layer);
+
+    const s = rowSamples[0] || null;
+    const rowH = s ? Math.max(36, 26) : 26;
+
+    html += `<div class="${rowCls}" style="min-height:${rowH}px">`;
+
+    // DEPTH
+    if (isMajor5 || d === 0) {
+      html += `<div class="bl-cell depth"><span style="font-size:12px;font-weight:700;padding-top:2px">${d===0?'0.0':d}</span></div>`;
+    } else {
+      html += `<div class="bl-cell"><div style="width:6px;height:1px;background:#aaa;margin:0 auto"></div></div>`;
+    }
+
+    // SAMPLE TYPE/NUMBER
+    if (s) {
+      html += `<div class="bl-cell" style="flex-direction:column;gap:1px;padding:3px 2px">${sampleSVG(s.type)}<div style="font-size:9px;font-weight:700;line-height:1">${s.id||''}</div></div>`;
+    } else {
+      html += `<div class="bl-cell"></div>`;
+    }
+
+    // BLOW COUNT
+    html += `<div class="bl-cell" style="font-size:9.5px;font-weight:700">${s?s.blows||'':''}</div>`;
+
+    // GRAPHIC LOG
+    html += `<div class="bl-cell" style="padding:0;overflow:hidden"><div class="graphic-fill ${pat}"></div></div>`;
+
+    // MATERIAL DESCRIPTION
+    let descContent = '';
+    if (showDesc && layer && layer.desc) descContent += `<div style="font-size:10.5px;line-height:1.35">${layer.desc}</div>`;
+    if (s && s.desc) descContent += `<div style="font-size:10px;color:#444;margin-top:${showDesc&&layer&&layer.desc?'2px':'0'}">${s.desc}</div>`;
+    html += `<div class="bl-cell left">${descContent}</div>`;
+
+    // LAB COLUMNS
+    const labs = ['ll','pi','gravel','sand','fines','rec','mc','pid'];
+    labs.forEach(f => { html += `<div class="bl-cell" style="font-size:10px">${s&&s[f]?s[f]:''}</div>`; });
+
+    // REMARKS
+    html += `<div class="bl-cell left" style="font-size:10px">${s&&s.remarks?s.remarks:''}</div>`;
+
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  // Footer
+  html += `<div style="border:1.5px solid #000;border-top:none;padding:4px 10px;font-size:10px;display:flex;gap:20px;background:#f9f9f9">
+    <span><b>Total Depth:</b> ${h_totaldepth||'—'} ft</span>
+    <span><b>Overburden:</b> ${h_overburden||'—'} ft</span>
+    <span style="margin-left:auto;color:#888">Generated ${new Date().toLocaleDateString()}</span>
+  </div>`;
+
+  document.getElementById('borelog').innerHTML = html;
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'borelog.json'; a.click();
+}
+function importJSON() {
+  const input = document.createElement('input'); input.type='file'; input.accept='.json';
+  input.onchange = e => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result); state = data;
+        if (state.header) Object.entries(state.header).forEach(([k,v]) => { const el=document.getElementById('h-'+k); if(el) el.value=v; });
+        renderLayerList(); renderSampleList(); render();
+      } catch(e) { alert('Invalid JSON'); }
+    };
+    reader.readAsText(e.target.files[0]);
+  };
+  input.click();
+}
+
+render();
+renderLayerList();
+renderSampleList();
+</script>
+</body>
+</html>

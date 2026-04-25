@@ -87,6 +87,7 @@ class ProjectsController < ApplicationController
                         .order(:name)
       @approved_equipments = @project.approved_equipments.order(:name)
       @change_orders = @project.change_orders.order(:number)
+      @drill_logs = @project.drill_logs.order(:boring_number)
     end
 
     def require_admin!

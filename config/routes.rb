@@ -39,6 +39,7 @@ Rails.application.routes.draw do
   # --- MAESTRO CHANGE: Nest Bid Items under Projects ---
   resources :projects do
     resources :bid_items # URL: /projects/1/bid_items/new
+    resources :drill_logs # URL: /projects/1/drill_logs
     resources :approved_equipments, only: [:create, :destroy]
     resources :phases, only: [:create, :update, :destroy]
     resources :change_orders, only: [:create, :update, :destroy]

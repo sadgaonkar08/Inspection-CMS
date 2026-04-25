@@ -1,0 +1,232 @@
+<%= form_with(model: [@project, drill_log], class: "contents", data: { controller: "drill-log-form" }) do |form| %>
+
+  <% if drill_log.errors.any? %>
+    <div class="error-explanation">
+      <h2><%= pluralize(drill_log.errors.count, "error") %> prohibited saving:</h2>
+      <ul><% drill_log.errors.each do |error| %><li><%= error.full_message %></li><% end %></ul>
+    </div>
+  <% end %>
+
+  <div class="form-card">
+
+    <div class="inline-card mb-3">
+      <strong>Project:</strong> <%= @project.name %>
+    </div>
+
+    <!-- Basic Information Section -->
+    <h3 class="section-header">Basic Information</h3>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :boring_number, "Boring Number" %>
+          <%= form.text_field :boring_number, class: "form-control", placeholder: "e.g. B-1", required: true %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :client %>
+          <%= form.text_field :client, class: "form-control", placeholder: "e.g. AECOM" %>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :project_name, "Project Name" %>
+          <%= form.text_field :project_name, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :project_number %>
+          <%= form.text_field :project_number, class: "form-control" %>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :project_location %>
+      <%= form.text_field :project_location, class: "form-control" %>
+    </div>
+
+    <!-- Dates and Elevation -->
+    <h3 class="section-header mt-4">Dates and Elevation</h3>
+
+    <div class="row">
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :date_started %>
+          <%= form.date_field :date_started, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :date_completed %>
+          <%= form.date_field :date_completed, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :ground_elevation, "Ground Elevation (ft)" %>
+          <%= form.number_field :ground_elevation, class: "form-control", step: 0.01 %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drilling Information -->
+    <h3 class="section-header mt-4">Drilling Information</h3>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :drilling_contractor %>
+          <%= form.text_field :drilling_contractor, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :drilling_method %>
+          <%= form.select :drilling_method,
+                          DrillLog::DRILLING_METHODS,
+                          { prompt: "Select method..." },
+                          { class: "form-control" } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :drill_rig %>
+          <%= form.text_field :drill_rig, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :hammer_weight %>
+          <%= form.text_field :hammer_weight, class: "form-control", placeholder: "e.g. 140 lbs" %>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <%= form.label :sampling_device %>
+          <%= form.select :sampling_device,
+                          DrillLog::SAMPLING_DEVICES,
+                          { prompt: "Select device..." },
+                          { class: "form-control" } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :hole_size %>
+          <%= form.text_field :hole_size, class: "form-control", placeholder: "e.g. 6 inches" %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :casing_size %>
+          <%= form.text_field :casing_size, class: "form-control" %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personnel -->
+    <h3 class="section-header mt-4">Personnel</h3>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :logged_by %>
+          <%= form.text_field :logged_by, class: "form-control" %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :checked_by %>
+          <%= form.text_field :checked_by, class: "form-control" %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Water Levels and Depths -->
+    <h3 class="section-header mt-4">Water Levels and Depths</h3>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :water_level_at_drilling %>
+          <%= form.text_field :water_level_at_drilling, class: "form-control", placeholder: "e.g. 10 ft" %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :water_level_at_end %>
+          <%= form.text_field :water_level_at_end, class: "form-control", placeholder: "e.g. 12 ft" %>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :total_depth, "Total Depth (ft)" %>
+          <%= form.number_field :total_depth, class: "form-control", step: 0.01 %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :overburden, "Overburden (ft)" %>
+          <%= form.number_field :overburden, class: "form-control", step: 0.01 %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coordinates (Optional) -->
+    <h3 class="section-header mt-4">Coordinates (Optional)</h3>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :northing %>
+          <%= form.number_field :northing, class: "form-control", step: 0.01 %>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <%= form.label :easting %>
+          <%= form.number_field :easting, class: "form-control", step: 0.01 %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group">
+      <%= form.label :notes, "Additional Notes" %>
+      <%= form.text_area :notes, class: "form-control", rows: 4 %>
+    </div>
+
+    <!-- Layers and Samples Notice -->
+    <div class="alert alert-info mt-4">
+      <strong>Note:</strong> Layer and sample data management will be available after creating the drill log.
+      You can edit the drill log to add layers and samples using the advanced editor.
+    </div>
+
+    <!-- Hidden fields for layers and samples - will be populated by JavaScript later -->
+    <%= form.hidden_field :layers, value: drill_log.layers.to_json, data: { drill_log_form_target: "layersData" } %>
+    <%= form.hidden_field :samples, value: drill_log.samples.to_json, data: { drill_log_form_target: "samplesData" } %>
+
+    <div class="mt-5">
+      <%= form.submit drill_log.persisted? ? "Update Drill Log" : "Create Drill Log", class: "btn btn-primary w-full" %>
+    </div>
+
+    <div class="text-center mt-4">
+       <%= link_to "Cancel", project_path(@project, anchor: "drill-logs") %>
+    </div>
+
+  </div>
+<% end %>

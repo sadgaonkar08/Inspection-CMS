@@ -1,0 +1,159 @@
+<div class="drill-log-report">
+  <div class="report-header mb-4">
+    <div class="d-flex justify-between align-center">
+      <div>
+        <h1>Drill Log: <%= @drill_log.boring_number %></h1>
+        <p class="text-muted"><%= @drill_log.project_name %></p>
+      </div>
+      <div class="d-flex gap-2">
+        <%= link_to "Edit", edit_project_drill_log_path(@project, @drill_log), class: "btn btn-secondary" %>
+        <%= link_to "Print Report", "#", class: "btn btn-primary", onclick: "window.print(); return false;" %>
+        <%= link_to "Back to Project", project_path(@project, anchor: "drill-logs"), class: "btn btn-secondary" %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Preview/View -->
+  <div class="report-content bg-white p-4 border">
+
+    <!-- Header Information -->
+    <div class="report-section">
+      <h3>Project Information</h3>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Boring Number:</strong> <%= @drill_log.boring_number %></p>
+          <p><strong>Client:</strong> <%= @drill_log.client.presence || "—" %></p>
+          <p><strong>Project Name:</strong> <%= @drill_log.project_name.presence || "—" %></p>
+          <p><strong>Project Number:</strong> <%= @drill_log.project_number.presence || "—" %></p>
+          <p><strong>Location:</strong> <%= @drill_log.project_location.presence || "—" %></p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Date Started:</strong> <%= @drill_log.date_started&.strftime("%m/%d/%Y") || "—" %></p>
+          <p><strong>Date Completed:</strong> <%= @drill_log.date_completed&.strftime("%m/%d/%Y") || "—" %></p>
+          <p><strong>Ground Elevation:</strong> <%= @drill_log.ground_elevation.present? ? "#{@drill_log.ground_elevation} ft" : "—" %></p>
+          <p><strong>Total Depth:</strong> <%= @drill_log.total_depth.present? ? "#{@drill_log.total_depth} ft" : "—" %></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drilling Information -->
+    <div class="report-section mt-4">
+      <h3>Drilling Information</h3>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Drilling Contractor:</strong> <%= @drill_log.drilling_contractor.presence || "—" %></p>
+          <p><strong>Drilling Method:</strong> <%= @drill_log.drilling_method.presence || "—" %></p>
+          <p><strong>Drill Rig:</strong> <%= @drill_log.drill_rig.presence || "—" %></p>
+          <p><strong>Hammer Weight:</strong> <%= @drill_log.hammer_weight.presence || "—" %></p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Sampling Device:</strong> <%= @drill_log.sampling_device.presence || "—" %></p>
+          <p><strong>Hole Size:</strong> <%= @drill_log.hole_size.presence || "—" %></p>
+          <p><strong>Casing Size:</strong> <%= @drill_log.casing_size.presence || "—" %></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personnel -->
+    <div class="report-section mt-4">
+      <h3>Personnel</h3>
+      <p><strong>Logged By:</strong> <%= @drill_log.logged_by.presence || "—" %></p>
+      <p><strong>Checked By:</strong> <%= @drill_log.checked_by.presence || "—" %></p>
+    </div>
+
+    <!-- Water Levels -->
+    <div class="report-section mt-4">
+      <h3>Water Levels</h3>
+      <p><strong>At Drilling:</strong> <%= @drill_log.water_level_at_drilling.presence || "—" %></p>
+      <p><strong>At End:</strong> <%= @drill_log.water_level_at_end.presence || "—" %></p>
+    </div>
+
+    <!-- Layers -->
+    <div class="report-section mt-4">
+      <h3>Soil Layers (<%= @drill_log.total_layers %>)</h3>
+      <% if @drill_log.total_layers > 0 %>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>From (ft)</th>
+              <th>To (ft)</th>
+              <th>USCS</th>
+              <th>Description</th>
+              <th>Boundary Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @drill_log.layers.each do |layer| %>
+              <tr>
+                <td><%= layer["from"] %></td>
+                <td><%= layer["to"] %></td>
+                <td><%= layer["uscs"] %></td>
+                <td><%= layer["desc"] %></td>
+                <td><%= layer["change"] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted">No layers recorded</p>
+      <% end %>
+    </div>
+
+    <!-- Samples -->
+    <div class="report-section mt-4">
+      <h3>Samples (<%= @drill_log.total_samples %>)</h3>
+      <% if @drill_log.total_samples > 0 %>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Depth (ft)</th>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Blows</th>
+              <th>Description</th>
+              <th>LL</th>
+              <th>PI</th>
+              <th>Recovery</th>
+              <th>MC%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @drill_log.samples.each do |sample| %>
+              <tr>
+                <td><%= sample["depth"] %></td>
+                <td><%= sample["id"] %></td>
+                <td><%= sample["type"] %></td>
+                <td><%= sample["blows"] %></td>
+                <td><%= sample["desc"] %></td>
+                <td><%= sample["ll"] %></td>
+                <td><%= sample["pi"] %></td>
+                <td><%= sample["rec"] %></td>
+                <td><%= sample["mc"] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted">No samples recorded</p>
+      <% end %>
+    </div>
+
+    <!-- Notes -->
+    <% if @drill_log.notes.present? %>
+      <div class="report-section mt-4">
+        <h3>Notes</h3>
+        <p><%= simple_format(@drill_log.notes) %></p>
+      </div>
+    <% end %>
+
+  </div>
+</div>
+
+<style media="print">
+  .report-header .d-flex {
+    display: none !important;
+  }
+  .btn {
+    display: none !important;
+  }
+</style>

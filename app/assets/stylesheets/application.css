@@ -1157,6 +1157,37 @@ body {
   font-size: var(--text-sm); font-weight: 600; text-transform: uppercase;
 }
 .modern-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+.checklist-question-cell { width: 72%; vertical-align: top; }
+.checklist-answer-cell { width: 28%; vertical-align: top; }
+.checklist-row-label { font-weight: 600; color: var(--text-main); }
+.checklist-row-toggle {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  text-align: left; font: inherit; color: inherit;
+}
+.checklist-row-toggle__icon {
+  width: 18px; display: inline-flex; justify-content: center;
+  color: var(--text-muted); font-weight: 700; flex-shrink: 0;
+}
+.checklist-answer-row--negative td { background: rgba(220, 38, 38, 0.06); }
+[data-theme="dark"] .checklist-answer-row--negative td { background: rgba(248, 113, 113, 0.14); }
+.checklist-answer-cell--negative { color: #b91c1c; }
+[data-theme="dark"] .checklist-answer-cell--negative { color: #fca5a5; }
+.checklist-detail-row td {
+  padding-top: 0; background: var(--bg-header);
+}
+.checklist-detail-list {
+  display: grid; gap: 10px; padding-bottom: 12px;
+}
+.checklist-detail-item {
+  border: 1px solid var(--border-color); border-radius: 8px;
+  background: var(--bg-card); padding: 12px;
+}
+.checklist-detail-label {
+  margin-bottom: 4px; font-size: var(--text-sm);
+  font-weight: 600; color: var(--text-muted);
+}
+.checklist-detail-answer { color: var(--text-main); white-space: pre-wrap; }
 .action-bar-container { margin-bottom: 30px; }
 .qc-panel {
   background-color: #eff6ff; border: 1px solid rgba(37, 99, 235, 0.25);
@@ -2951,3 +2982,186 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
   font-weight: 600;
 }
 
+
+/* =========================================================================
+   PWL Analysis card — see app/views/asphalt_lots/_pwl_analysis.html.erb
+   ========================================================================= */
+
+.pwl-card {
+  padding: 1.5rem;
+}
+.pwl-card + .pwl-card {
+  margin-top: 1.25rem;
+}
+
+.pwl-category {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.pwl-hero {
+  text-align: center;
+  margin: 0.25rem 0 1.25rem;
+}
+.pwl-hero__value {
+  font-family: var(--font-accent);
+  font-size: 3.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.pwl-hero__label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.pwl-hero__timestamp {
+  margin-top: 0.5rem;
+  font-size: var(--text-xs);
+  color: var(--text-light);
+}
+.pwl-hero--good .pwl-hero__value { color: var(--success); }
+.pwl-hero--warn .pwl-hero__value { color: var(--warning); }
+.pwl-hero--bad .pwl-hero__value  { color: var(--danger); }
+
+.pwl-grid {
+  display: grid;
+  grid-template-columns: 0.6fr 1fr 1fr minmax(0, 2.4fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.pwl-grid__cell {
+  background: var(--bg-header);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  min-width: 0;
+}
+.pwl-grid__cell--values .pwl-grid__value {
+  word-break: break-word;
+  white-space: normal;
+}
+.pwl-grid__label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.pwl-grid__value {
+  margin-top: 0.25rem;
+  font-family: var(--font-accent);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-main);
+}
+.pwl-grid__value--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.pwl-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.pwl-breakdown--single { grid-template-columns: 1fr; }
+.pwl-side {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+}
+.pwl-side__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+.pwl-side__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed var(--border-color);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.pwl-side__row:last-child { border-bottom: none; }
+.pwl-side__row strong {
+  font-family: var(--font-accent);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.pwl-formula {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  background: var(--bg-header);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--text-main);
+}
+.pwl-formula__result {
+  font-family: var(--font-accent);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--text-main);
+}
+
+.pwl-legend {
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem 1.25rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.pwl-legend dt {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-main);
+  margin-right: 0.5rem;
+  min-width: 2.5em;
+}
+.pwl-legend dd {
+  display: inline;
+  margin: 0;
+}
+.pwl-legend__row { line-height: 1.6; }
+
+.pwl-status-message {
+  background: var(--bg-header);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 720px) {
+  .pwl-grid { grid-template-columns: repeat(2, 1fr); }
+  .pwl-grid__cell--values { grid-column: span 2; }
+  .pwl-breakdown { grid-template-columns: 1fr; }
+  .pwl-hero__value { font-size: 2.5rem; }
+}

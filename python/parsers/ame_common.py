@@ -20,6 +20,20 @@ def is_ame_report(text: str) -> bool:
     return LAB_SIGNATURE.lower() in text.lower()
 
 
+def is_cores_report(text: str) -> bool:
+    """True for AME core/compaction reports (used for both P-403 and P-401 cores).
+
+    Cores reports always carry a 'Core ID' header row and a 'Compaction*, %' row;
+    HMA mix reports have neither. Both markers are required so a stray mention in
+    body prose doesn't trigger a false positive.
+    """
+    if not is_ame_report(text):
+        return False
+    has_core_id = re.search(r"^\s*Core\s+ID\s+", text, re.MULTILINE) is not None
+    has_compaction = re.search(r"Compaction\*?,?\s*%", text) is not None
+    return has_core_id and has_compaction
+
+
 def parse_header(text: str) -> dict:
     """Extract the letterhead fields common to AME P-401 and P-403 reports.
 

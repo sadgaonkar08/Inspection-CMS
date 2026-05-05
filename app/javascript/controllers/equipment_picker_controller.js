@@ -103,6 +103,7 @@ export default class extends Controller {
       const makeModelField = content.querySelector('[name*="[make_model]"]');
       const contractorField = content.querySelector('[name*="[contractor]"]');
       const hoursField = content.querySelector('[name*="[hours]"]');
+      const quantityField = content.querySelector('[name*="[quantity]"]');
 
       if (makeModelField) {
         // If it's a select, try to set the value; otherwise set as text input
@@ -119,6 +120,10 @@ export default class extends Controller {
 
       if (hoursField && globalHours) {
         hoursField.value = globalHours;
+      }
+
+      if (quantityField) {
+        quantityField.value = "1";
       }
 
       // Append to container

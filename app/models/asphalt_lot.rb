@@ -8,6 +8,7 @@ class AsphaltLot < ApplicationRecord
   has_many :asphalt_lanes, through: :asphalt_sublots
   has_many :core_generations, dependent: :destroy
   has_many :lab_test_results, dependent: :nullify
+  has_many :pwl_calculations, dependent: :destroy
 
   validates :lot_number, presence: true
   validates :plant, presence: true, inclusion: { in: PLANTS }

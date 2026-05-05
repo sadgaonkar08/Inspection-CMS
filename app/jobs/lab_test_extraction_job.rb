@@ -61,6 +61,10 @@ class LabTestExtractionJob < ApplicationJob
     end
 
     import.broadcast_status
+
+    if import.status == "saved" && import.asphalt_lot_id.present?
+      PwlRecalculationJob.perform_later(import.asphalt_lot_id)
+    end
   end
 
   def persist_results(import, rows, header)

@@ -51,7 +51,10 @@ Rails.application.routes.draw do
       end
       resource :bulk_setup, only: [:new, :create]
       resources :asphalt_sublots, only: [:create, :update, :destroy] do
-        member { patch :toggle_core_lock }
+        member do
+          patch :toggle_core_lock
+          patch :bulk_update_lanes
+        end
         resources :asphalt_lanes, only: [:create, :update, :destroy]
       end
       resources :core_generations, only: [:new, :create, :show] do

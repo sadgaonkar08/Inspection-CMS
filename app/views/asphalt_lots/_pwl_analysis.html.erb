@@ -1,0 +1,179 @@
+<%# PWL breakdown panel — one card per parameter on the lot.
+    Layout: category label, hero metric, inputs grid, two-column breakdown,
+    final formula, legend. See docs/PWL_FOR_TESTS.md §6 for design intent. %>
+
+<div class="form-card mt-5">
+  <h3>PWL Analysis</h3>
+
+  <% if @pwl_calculations.empty? %>
+    <p class="text-muted mb-0">
+      No PWL calculations yet for this lot. Upload P-401 lab results linked to this lot to populate this section.
+    </p>
+  <% else %>
+    <% @pwl_calculations.each do |calc| %>
+      <%
+        parameter_label = calc.parameter.titleize
+        is_double_sided = calc.lower_limit.present? && calc.upper_limit.present?
+        pwl = calc.pwl_percentage
+        hero_band =
+          if pwl.nil?            then nil
+          elsif pwl >= 90        then "good"
+          elsif pwl >= 75        then "warn"
+          else                        "bad"
+          end
+      %>
+      <div class="nested-entry-card pwl-card">
+        <div class="pwl-category"><%= parameter_label %></div>
+
+        <% if calc.criteria_type == PwlCalculation::CRITERIA_AVERAGE_THRESHOLD %>
+          <% if calc.status == "ok" %>
+            <% pass_band = calc.passed ? "good" : "bad" %>
+            <div class="pwl-hero pwl-hero--<%= pass_band %>">
+              <span class="pwl-hero__label">Average</span>
+              <span class="pwl-hero__value"><%= number_with_precision(calc.mean, precision: 2, strip_insignificant_zeros: true) %>%</span>
+              <div class="pwl-hero__timestamp">
+                <strong><%= calc.passed ? "PASS" : "FAIL" %></strong>
+                — Threshold:
+                <% if calc.lower_limit.present? && calc.upper_limit.present? %>
+                  <%= number_with_precision(calc.lower_limit, precision: 2, strip_insignificant_zeros: true) %>%
+                  ≤ avg ≤
+                  <%= number_with_precision(calc.upper_limit, precision: 2, strip_insignificant_zeros: true) %>%
+                <% elsif calc.lower_limit.present? %>
+                  avg ≥ <%= number_with_precision(calc.lower_limit, precision: 2, strip_insignificant_zeros: true) %>%
+                <% elsif calc.upper_limit.present? %>
+                  avg ≤ <%= number_with_precision(calc.upper_limit, precision: 2, strip_insignificant_zeros: true) %>%
+                <% end %>
+                <% if calc.calculated_at %>
+                  · Last calculated <%= calc.calculated_at.strftime("%b %d, %Y %H:%M") %>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="pwl-grid">
+              <div class="pwl-grid__cell">
+                <div class="pwl-grid__label">n</div>
+                <div class="pwl-grid__value"><%= calc.n %></div>
+              </div>
+              <div class="pwl-grid__cell pwl-grid__cell--values">
+                <div class="pwl-grid__label">Sample Values</div>
+                <div class="pwl-grid__value pwl-grid__value--mono">
+                  <%= Array(calc.sample_values).map { |v| number_with_precision(v, precision: 2) }.join(", ") %>
+                </div>
+              </div>
+            </div>
+          <% else %>
+            <div class="pwl-status-message">No data available for this parameter.</div>
+          <% end %>
+
+        <% else %>
+        <% case calc.status %>
+        <% when "ok" %>
+          <div class="pwl-hero<%= " pwl-hero--#{hero_band}" if hero_band %>">
+            <span class="pwl-hero__label">PWL</span>
+            <span class="pwl-hero__value"><%= pwl %>%</span>
+            <% if calc.calculated_at %>
+              <div class="pwl-hero__timestamp">
+                Last calculated <%= calc.calculated_at.strftime("%b %d, %Y %H:%M") %>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="pwl-grid">
+            <div class="pwl-grid__cell">
+              <div class="pwl-grid__label">n</div>
+              <div class="pwl-grid__value"><%= calc.n %></div>
+            </div>
+            <div class="pwl-grid__cell">
+              <div class="pwl-grid__label">X (Mean)</div>
+              <div class="pwl-grid__value"><%= number_with_precision(calc.mean, precision: 4, strip_insignificant_zeros: true) %></div>
+            </div>
+            <div class="pwl-grid__cell">
+              <div class="pwl-grid__label">S<sub>n</sub> (Std Dev)</div>
+              <div class="pwl-grid__value"><%= number_with_precision(calc.std_dev, precision: 4, strip_insignificant_zeros: true) %></div>
+            </div>
+            <div class="pwl-grid__cell pwl-grid__cell--values">
+              <div class="pwl-grid__label">Sample Values</div>
+              <div class="pwl-grid__value pwl-grid__value--mono">
+                <%= Array(calc.sample_values).map { |v| number_with_precision(v, precision: 2) }.join(", ") %>
+              </div>
+            </div>
+          </div>
+
+          <div class="pwl-breakdown<%= " pwl-breakdown--single" unless is_double_sided %>">
+            <% if calc.q_lower.present? %>
+              <div class="pwl-side">
+                <div class="pwl-side__title">Lower Limit</div>
+                <div class="pwl-side__row">
+                  <span>L</span>
+                  <strong><%= number_with_precision(calc.lower_limit, precision: 2, strip_insignificant_zeros: true) %></strong>
+                </div>
+                <div class="pwl-side__row">
+                  <span>Q<sub>L</sub> = (X − L) / S<sub>n</sub></span>
+                  <strong><%= number_with_precision(calc.q_lower, precision: 4) %></strong>
+                </div>
+                <div class="pwl-side__row">
+                  <span>P<sub>L</sub></span>
+                  <strong><%= calc.p_lower %></strong>
+                </div>
+              </div>
+            <% end %>
+
+            <% if calc.q_upper.present? %>
+              <div class="pwl-side">
+                <div class="pwl-side__title">Upper Limit</div>
+                <div class="pwl-side__row">
+                  <span>U</span>
+                  <strong><%= number_with_precision(calc.upper_limit, precision: 2, strip_insignificant_zeros: true) %></strong>
+                </div>
+                <div class="pwl-side__row">
+                  <span>Q<sub>U</sub> = (U − X) / S<sub>n</sub></span>
+                  <strong><%= number_with_precision(calc.q_upper, precision: 4) %></strong>
+                </div>
+                <div class="pwl-side__row">
+                  <span>P<sub>U</sub></span>
+                  <strong><%= calc.p_upper %></strong>
+                </div>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="pwl-formula">
+            <% if is_double_sided %>
+              PWL = (P<sub>L</sub> + P<sub>U</sub>) − 100 = (<%= calc.p_lower %> + <%= calc.p_upper %>) − 100 =
+              <span class="pwl-formula__result"><%= pwl %></span>
+            <% elsif calc.p_lower %>
+              PWL = P<sub>L</sub> = <span class="pwl-formula__result"><%= pwl %></span>
+            <% else %>
+              PWL = P<sub>U</sub> = <span class="pwl-formula__result"><%= pwl %></span>
+            <% end %>
+          </div>
+
+          <dl class="pwl-legend">
+            <div class="pwl-legend__row"><dt>n</dt><dd>Number of sublots</dd></div>
+            <div class="pwl-legend__row"><dt>X</dt><dd>Sample Mean</dd></div>
+            <div class="pwl-legend__row"><dt>S<sub>n</sub></dt><dd>Sample Standard Deviation</dd></div>
+            <div class="pwl-legend__row"><dt>L / U</dt><dd>Lower / Upper Specification Limit</dd></div>
+            <div class="pwl-legend__row"><dt>Q<sub>L</sub> / Q<sub>U</sub></dt><dd>Lower / Upper Quality Index</dd></div>
+            <div class="pwl-legend__row"><dt>P<sub>L</sub> / P<sub>U</sub></dt><dd>Percent Within Lower / Upper Limit</dd></div>
+          </dl>
+
+        <% when "insufficient_n" %>
+          <div class="pwl-status-message">
+            Need at least 3 sublots to compute PWL — only <%= calc.n %> available.
+          </div>
+        <% when "n_too_large" %>
+          <div class="pwl-status-message">
+            <%= calc.n %> sublots exceeds the standard Q-table (n ≤ 10). Requires FAA Engineering Brief 57 extended table.
+          </div>
+        <% when "missing_limits" %>
+          <div class="pwl-status-message">
+            No specification limits available for this parameter. Limits are read from the uploaded lab report; check that the source PDF includes them.
+          </div>
+        <% else %>
+          <div class="pwl-status-message">Status: <%= calc.status %></div>
+        <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

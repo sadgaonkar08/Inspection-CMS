@@ -1,4 +1,8 @@
-"""AME — P-403 in-place cores (density/compaction).
+"""AME — in-place cores (density/compaction). Used for both P-403 and P-401 cores.
+
+The same report layout is issued under either spec code — only the letterhead
+subject line differs. Dispatch picks this parser whenever the PDF text matches
+``ame_common.is_cores_report``.
 
 The report contains two column-oriented groups (mat cores, then joint cores).
 Each group layout:

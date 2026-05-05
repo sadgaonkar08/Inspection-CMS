@@ -240,7 +240,10 @@ class CoreGenerationsController < ApplicationController
   end
 
   def generation_payload(generation)
-    locations = generation.core_locations.includes(:asphalt_sublot, :asphalt_lane).order(:mark).map do |loc|
+    sorted_core_locations = generation.core_locations.includes(:asphalt_sublot, :asphalt_lane).sort_by do |loc|
+      [loc.asphalt_sublot&.position || Float::INFINITY, loc.joint? ? 0 : 1, loc.mark.to_s]
+    end
+    locations = sorted_core_locations.map do |loc|
       {
         mark: loc.mark,
         core_type: loc.mat? ? "Mat" : "Joint",

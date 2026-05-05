@@ -73,6 +73,8 @@
     </div>
   </div>
 
+  <%= render "pwl_analysis" %>
+
   <%# Sublots & Lanes %>
   <div class="form-card mt-5">
     <div class="d-flex justify-between align-center mb-4">
@@ -164,47 +166,53 @@
 
           <div data-collapsible-target="content">
           <% if sublot.asphalt_lanes.any? %>
-            <table class="modern-table table-compact mb-0">
-              <thead>
-                <tr>
-                  <th>Lane</th>
-                  <th>Length (ft)</th>
-                  <th>Width (ft)</th>
-                  <th style="width: 120px;">Actions</th>
-                </tr>
-              </thead>
-              <% sublot.asphalt_lanes.order(:position).each do |lane| %>
-                <tbody data-controller="toggle-edit">
-                  <tr data-toggle-edit-target="display">
-                    <td class="font-bold">Lane <%= lane.position %></td>
-                    <td><%= lane.length_ft %></td>
-                    <td><%= lane.width_ft %></td>
-                    <td>
-                      <button type="button" class="btn btn-sm btn-secondary" data-toggle-edit-target="toggleBtn" data-edit-label="Edit" data-action="toggle-edit#toggle">Edit</button>
-                      <%= button_to "Delete",
-                            project_asphalt_lot_asphalt_sublot_asphalt_lane_path(@project, @asphalt_lot, sublot, lane),
-                            method: :delete,
-                            class: "btn btn-sm btn-danger",
-                            form: { data: { turbo_confirm: "Delete Lane #{lane.position}?" }, style: "display:inline" } %>
-                    </td>
+            <%= form_with url: bulk_update_lanes_project_asphalt_lot_asphalt_sublot_path(@project, @asphalt_lot, sublot),
+                  method: :patch,
+                  local: true do %>
+              <table class="modern-table table-compact mb-0">
+                <thead>
+                  <tr>
+                    <th>Lane</th>
+                    <th>Length (ft)</th>
+                    <th>Width (ft)</th>
+                    <th style="width: 60px;">Delete</th>
                   </tr>
-                  <tr data-toggle-edit-target="form" class="d-none">
-                    <%= form_with model: lane,
-                          url: project_asphalt_lot_asphalt_sublot_asphalt_lane_path(@project, @asphalt_lot, sublot, lane),
-                          method: :patch,
-                          local: true do |f| %>
+                </thead>
+                <tbody>
+                  <% sublot.asphalt_lanes.order(:position).each do |lane| %>
+                    <tr>
                       <td class="font-bold">Lane <%= lane.position %></td>
-                      <td><%= f.number_field :length_ft, step: 0.01, min: 0.01, class: "form-control form-control-sm", required: true %></td>
-                      <td><%= f.number_field :width_ft, step: 0.01, min: 0.01, class: "form-control form-control-sm", required: true %></td>
+                      <td><%= number_field_tag "lanes[#{lane.id}][length_ft]", lane.length_ft, step: 0.01, min: 0.01, class: "form-control form-control-sm", required: true %></td>
+                      <td><%= number_field_tag "lanes[#{lane.id}][width_ft]", lane.width_ft, step: 0.01, min: 0.01, class: "form-control form-control-sm", required: true %></td>
                       <td>
-                        <%= f.submit "Save", class: "btn btn-sm btn-primary" %>
-                        <button type="button" class="btn btn-sm btn-secondary" data-action="toggle-edit#toggle">Cancel</button>
+                        <button type="submit"
+                                form="delete-lane-<%= lane.id %>"
+                                class="btn btn-sm btn-danger"
+                                style="padding: 4px 8px;"
+                                aria-label="Delete Lane <%= lane.position %>"
+                                title="Delete Lane <%= lane.position %>">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
+                        </button>
                       </td>
-                    <% end %>
-                  </tr>
+                    </tr>
+                  <% end %>
                 </tbody>
+              </table>
+              <div class="mt-2" style="text-align: right;">
+                <button type="submit" class="btn btn-sm btn-primary" title="Save all lane changes">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px; margin-right: 4px;"><path d="M12.5 1.5h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7l-2-4z"/><polyline points="11.5,14.5 11.5,8.5 4.5,8.5 4.5,14.5"/><polyline points="4.5,1.5 4.5,5.5 10.5,5.5"/></svg>
+                  Save
+                </button>
+              </div>
+            <% end %>
+
+            <% sublot.asphalt_lanes.order(:position).each do |lane| %>
+              <%= form_with url: project_asphalt_lot_asphalt_sublot_asphalt_lane_path(@project, @asphalt_lot, sublot, lane),
+                    method: :delete,
+                    local: true,
+                    html: { id: "delete-lane-#{lane.id}", style: "display:none;", data: { turbo_confirm: "Delete Lane #{lane.position}?" } } do %>
               <% end %>
-            </table>
+            <% end %>
           <% else %>
             <p class="text-muted">No lanes defined for this sublot.</p>
           <% end %>

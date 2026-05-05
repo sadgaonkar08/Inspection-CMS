@@ -5,31 +5,64 @@
 
       <div class="checklist-summary-grid">
         <% @report.checklist_entries.each do |entry| %>
+          <% rows = ChecklistEntryShowPresenter.new(entry).rows %>
           <div class="checklist-summary-card" data-controller="collapsible">
             <div class="checklist-header checklist-header-collapsible" data-action="click->collapsible#toggle">
               <div class="flex-center-gap">
-                <span class="collapse-icon" data-collapsible-target="icon">▼</span>
+                <span class="collapse-icon" data-collapsible-target="icon">►</span>
                 <span class="checklist-code"><%= entry.spec_item.code %></span>
               </div>
               <span class="checklist-desc"><%= entry.spec_item.description %></span>
             </div>
 
-            <div data-collapsible-target="content">
+            <div data-collapsible-target="content" style="display: none;">
               <table class="modern-table table-compact mb-0">
-                <tbody>
-                  <% entry.checklist_answers.each do |question, answer| %>
-                    <tr>
-                      <td><%= question %></td>
-                      <td class="font-bold text-center text-sm">
-                        <% if answer == "No" %>
-                          <span class="text-danger"><%= answer %></span>
+                <% rows.each do |row| %>
+                  <% row_classes = ["checklist-answer-row"] %>
+                  <% row_classes << "checklist-answer-row--negative" if row.negative %>
+                  <% row_classes << "checklist-answer-row--expandable" if row.expandable? %>
+                  <% answer_cell_classes = ["checklist-answer-cell", "font-bold", "text-center", "text-sm"] %>
+                  <% answer_cell_classes << "checklist-answer-cell--negative" if row.negative %>
+                  <tbody class="checklist-question-group" <%= row.expandable? ? 'data-controller="checklist-row"'.html_safe : "" %>>
+                    <tr class="<%= row_classes.join(" ") %>">
+                      <td class="checklist-question-cell">
+                        <% if row.expandable? %>
+                          <button type="button"
+                                  class="checklist-row-toggle"
+                                  data-action="click->checklist-row#toggle"
+                                  data-checklist-row-target="button"
+                                  aria-expanded="false">
+                            <span class="checklist-row-toggle__icon" data-checklist-row-target="icon">+</span>
+                            <span class="checklist-row-label"><%= row.label %></span>
+                          </button>
                         <% else %>
-                          <%= answer %>
+                          <span class="checklist-row-label"><%= row.label %></span>
+                        <% end %>
+                      </td>
+                      <td class="<%= answer_cell_classes.join(" ") %>">
+                        <% if row.negative %>
+                          <span class="text-danger"><%= row.answer.presence || "Not answered" %></span>
+                        <% else %>
+                          <%= row.answer.presence || "Not answered" %>
                         <% end %>
                       </td>
                     </tr>
+                    <% if row.expandable? %>
+                      <tr class="checklist-detail-row d-none" data-checklist-row-target="details">
+                        <td colspan="2">
+                          <div class="checklist-detail-list">
+                            <% row.details.each do |detail| %>
+                              <div class="checklist-detail-item">
+                                <div class="checklist-detail-label"><%= detail.label %></div>
+                                <div class="checklist-detail-answer"><%= detail.answer.presence || "Not answered" %></div>
+                              </div>
+                            <% end %>
+                          </div>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
                   <% end %>
-                </tbody>
               </table>
             </div>
           </div>

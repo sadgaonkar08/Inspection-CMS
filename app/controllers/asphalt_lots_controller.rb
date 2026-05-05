@@ -22,6 +22,8 @@ class AsphaltLotsController < ApplicationController
       @diagram_data = build_lot_diagram_data(@latest_generation)
     end
 
+    @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
+
     group_lab_test_results_by_sublot!
   end
 
@@ -103,7 +105,10 @@ class AsphaltLotsController < ApplicationController
                                  .order(created_at: :desc)
 
     generations = core_generations.map do |cg|
-      locations = cg.core_locations.sort_by { |loc| loc.mark.to_s }.map do |loc|
+      sorted_locations = cg.core_locations.sort_by do |loc|
+        [loc.asphalt_sublot&.position || Float::INFINITY, loc.joint? ? 0 : 1, loc.mark.to_s]
+      end
+      locations = sorted_locations.map do |loc|
         {
           mark: loc.mark,
           core_type: loc.mat? ? "Mat" : "Joint",

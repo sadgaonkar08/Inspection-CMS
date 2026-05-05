@@ -846,7 +846,7 @@ export default class extends Controller {
               <th>Lane</th>
               <th>Length (ft)</th>
               <th>Width (ft)</th>
-              <th>Actions</th>
+              <th style="width: 60px;">Delete</th>
             </tr>
           </thead>
           <tbody data-lane-table-body-id="${sublot.id}">
@@ -854,8 +854,11 @@ export default class extends Controller {
           </tbody>
         </table>
 
-        <div class="d-flex align-center gap-2">
+        <div class="d-flex align-center gap-2 justify-between">
           <button type="button" class="btn btn-secondary btn-sm" data-inline-action="add-lane" data-sublot-id="${sublot.id}">Add Lane</button>
+          <button type="button" class="btn btn-primary btn-sm" data-inline-action="save-all-lanes" data-sublot-id="${sublot.id}" title="Save all lane changes">
+            ${this.floppyIconSvg()} Save Lanes
+          </button>
         </div>
       </details>
     `
@@ -872,8 +875,9 @@ export default class extends Controller {
           <input type="number" class="form-control form-control-sm" step="0.1" min="0.1" data-lane-field="width_ft" value="${this.escapeHtml(String(lane.width_ft ?? ""))}">
         </td>
         <td>
-          <button type="button" class="btn btn-sm btn-primary" data-inline-action="save-lane" data-sublot-id="${sublot.id}" data-lane-id="${lane.id}">Save</button>
-          <button type="button" class="btn btn-sm btn-danger" data-inline-action="delete-lane" data-sublot-id="${sublot.id}" data-lane-id="${lane.id}">Delete</button>
+          <button type="button" class="btn btn-sm btn-danger" style="padding: 4px 8px;" data-inline-action="delete-lane" data-sublot-id="${sublot.id}" data-lane-id="${lane.id}" aria-label="Delete Lane ${lane.position}" title="Delete Lane ${lane.position}">
+            ${this.xIconSvg()}
+          </button>
         </td>
       </tr>
     `
@@ -890,11 +894,20 @@ export default class extends Controller {
           <input type="number" class="form-control form-control-sm" step="0.1" min="0.1" data-lane-field="width_ft" value="">
         </td>
         <td>
-          <button type="button" class="btn btn-sm btn-primary" data-inline-action="create-lane" data-sublot-id="${sublotId}" data-draft-id="${draftId}">Save</button>
-          <button type="button" class="btn btn-sm btn-danger" data-inline-action="discard-draft-lane" data-sublot-id="${sublotId}" data-draft-id="${draftId}">Delete</button>
+          <button type="button" class="btn btn-sm btn-danger" style="padding: 4px 8px;" data-inline-action="discard-draft-lane" data-sublot-id="${sublotId}" data-draft-id="${draftId}" aria-label="Discard new lane" title="Discard new lane">
+            ${this.xIconSvg()}
+          </button>
         </td>
       </tr>
     `
+  }
+
+  xIconSvg() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>'
+  }
+
+  floppyIconSvg() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px; margin-right: 4px;"><path d="M12.5 1.5h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7l-2-4z"/><polyline points="11.5,14.5 11.5,8.5 4.5,8.5 4.5,14.5"/><polyline points="4.5,1.5 4.5,5.5 10.5,5.5"/></svg>'
   }
 
   lockIconSvg(isLocked) {
@@ -1003,6 +1016,9 @@ export default class extends Controller {
         break
       case "save-lane":
         await this.saveLane(actionButton)
+        break
+      case "save-all-lanes":
+        await this.saveAllLanes(actionButton)
         break
       case "delete-lane":
         await this.deleteLane(actionButton)
@@ -1354,6 +1370,71 @@ export default class extends Controller {
       )
 
       this.renderLotPanelStatus("Lane updated.", "success")
+      await this.fetchLotManagement()
+    })
+  }
+
+  async saveAllLanes(button) {
+    const lotId = this.currentLotId()
+    const sublotId = button.dataset.sublotId
+    if (!lotId || !sublotId) return
+
+    const tbody = this.lotPanelContentTarget.querySelector(`[data-lane-table-body-id="${sublotId}"]`)
+    if (!tbody) return
+
+    const draftRows = Array.from(tbody.querySelectorAll("[data-lane-draft-row-id]"))
+    const existingRows = Array.from(tbody.querySelectorAll("[data-lane-row-id]"))
+
+    // Validate drafts: skip empty rows; error on partials
+    const draftsToCreate = []
+    for (const row of draftRows) {
+      const lengthFt = this.valueFrom(row, '[data-lane-field="length_ft"]').trim()
+      const widthFt = this.valueFrom(row, '[data-lane-field="width_ft"]').trim()
+      if (!lengthFt && !widthFt) continue
+      if (!this.isPositiveNumber(lengthFt) || !this.isPositiveNumber(widthFt)) {
+        this.renderLotPanelStatus("Enter positive values for new lane length and width before saving.", "error")
+        return
+      }
+      draftsToCreate.push({ lengthFt, widthFt })
+    }
+
+    // Validate existing rows
+    const existingPayload = {}
+    for (const row of existingRows) {
+      const laneId = row.dataset.laneRowId
+      const lengthFt = this.valueFrom(row, '[data-lane-field="length_ft"]').trim()
+      const widthFt = this.valueFrom(row, '[data-lane-field="width_ft"]').trim()
+      if (!this.isPositiveNumber(lengthFt) || !this.isPositiveNumber(widthFt)) {
+        this.renderLotPanelStatus(`Lane ${row.dataset.lanePosition || ""}: length and width must be positive.`, "error")
+        return
+      }
+      existingPayload[laneId] = { length_ft: lengthFt, width_ft: widthFt }
+    }
+
+    if (draftsToCreate.length === 0 && Object.keys(existingPayload).length === 0) {
+      this.renderLotPanelStatus("No lane changes to save.", "info")
+      return
+    }
+
+    await this.withButtonLoading(button, "Saving...", async () => {
+      for (const draft of draftsToCreate) {
+        await this.requestJson(
+          `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/asphalt_sublots/${sublotId}/asphalt_lanes`,
+          {
+            method: "POST",
+            body: { asphalt_lane: { length_ft: draft.lengthFt, width_ft: draft.widthFt } }
+          }
+        )
+      }
+
+      if (Object.keys(existingPayload).length > 0) {
+        await this.requestJson(
+          `/projects/${this.projectIdValue}/asphalt_lots/${lotId}/asphalt_sublots/${sublotId}/bulk_update_lanes`,
+          { method: "PATCH", body: { lanes: existingPayload } }
+        )
+      }
+
+      this.renderLotPanelStatus("Lanes saved.", "success")
       await this.fetchLotManagement()
     })
   }

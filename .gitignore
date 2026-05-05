@@ -75,3 +75,5 @@ build/
 # MCP server and Claude Code skill (local tooling, not for production)
 /mcp-server/
 /.claude/skills/
+
+.idea/*

@@ -75,3 +75,8 @@ build/
 # MCP server and Claude Code skill (local tooling, not for production)
 /mcp-server/
 /.claude/skills/
+
+app_logs.zip
+app_logs_latest.zip
+app_logs/*
+app_logs_latest/*

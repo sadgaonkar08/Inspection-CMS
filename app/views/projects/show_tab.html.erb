@@ -1,5 +1,14 @@
 <%# Rendered as a turbo-frame response for lazy tab loading on the project show page. %>
 <% partial_name = "projects/#{params[:tab].tr('-', '_')}_tab" %>
 <%= turbo_frame_tag "tab-#{params[:tab]}", target: "_top" do %>
-  <%= render partial_name %>
+  <% begin %>
+    <%= render partial_name %>
+  <% rescue => e %>
+    <div class="alert alert-danger">
+      <p>Error loading tab content. Please refresh the page.</p>
+      <% if Rails.env.development? %>
+        <small><%= e.message %></small>
+      <% end %>
+    </div>
+  <% end %>
 <% end %>

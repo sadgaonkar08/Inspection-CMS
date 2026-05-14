@@ -1,11 +1,12 @@
 <div class="d-flex justify-between align-center mb-4">
-  <h3 class="mb-0">Asphalt Lots (<%= @asphalt_lots.count %>)</h3>
+  <h3 class="mb-0">Asphalt Lots (<%= @asphalt_lots&.count || 0 %>)</h3>
   <%= link_to "+ New Lot", new_project_asphalt_lot_path(@project), class: "btn btn-primary" %>
 </div>
 
 <div class="form-card">
-  <% cache [@project, "project_asphalt_lots_tab", @asphalt_lots.cache_key_with_version] do %>
-    <% if @asphalt_lots.any? %>
+  <% if @asphalt_lots.present? %>
+    <% cache [@project, "project_asphalt_lots_tab", @asphalt_lots.cache_key_with_version] do %>
+      <% if @asphalt_lots.any? %>
       <table class="modern-table">
         <thead>
           <tr>
@@ -36,8 +37,11 @@
           <% end %>
         </tbody>
       </table>
-    <% else %>
-      <p class="text-muted">No asphalt lots have been created for this project yet.</p>
+      <% else %>
+        <p class="text-muted">No asphalt lots have been created for this project yet.</p>
+      <% end %>
     <% end %>
+  <% else %>
+    <p class="text-muted">Unable to load asphalt lots data. Please refresh the page.</p>
   <% end %>
 </div>

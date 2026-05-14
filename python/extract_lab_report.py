@@ -32,9 +32,14 @@ from parsers import (
 
 SPEC_CODES = ("P-401", "P-403", "P-610")
 
-# Spec -> list of (lab_detector, parser_module). First matching detector wins.
+# Spec -> list of (detector, parser_module, parser_name). First matching detector wins.
+# P-401 may arrive as either an HMA mix report or a cores report; the cores detector
+# is checked first so cores PDFs route to the cores parser regardless of spec code.
 DISPATCH = {
-    "P-401": [(ame_common.is_ame_report, ame_p401_hma, "ame_p401_hma")],
+    "P-401": [
+        (ame_common.is_cores_report, ame_p403_cores, "ame_p403_cores"),
+        (ame_common.is_ame_report, ame_p401_hma, "ame_p401_hma"),
+    ],
     "P-403": [(ame_common.is_ame_report, ame_p403_cores, "ame_p403_cores")],
     "P-610": [(isi_common.is_isi_report, isi_p610_concrete, "isi_p610_concrete")],
 }

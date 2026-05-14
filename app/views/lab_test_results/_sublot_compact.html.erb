@@ -29,20 +29,20 @@
             <td><%= r.sublot_number.presence || "—" %></td>
             <td><%= r.test_date&.strftime("%b %d, %Y") || "—" %></td>
             <td>
-              <% case r.spec_code %>
-              <% when "P-401" %>
+              <% case result_view_key(r) %>
+              <% when "p401_hma" %>
                 Air voids <%= d["air_voids_avg"] %>%
                 <% if d["air_voids_min_pct"].present? && d["air_voids_max_pct"].present? %>
                   <span class="text-muted">(range <%= d["air_voids_min_pct"] %>–<%= d["air_voids_max_pct"] %>)</span>
                 <% end %>
-              <% when "P-403" %>
+              <% when "p403_cores" %>
                 Core <%= d["core_id"] %>
                 <% if d["core_type"].present? %>(<%= d["core_type"] %>)<% end %>
                 — <%= d["compaction_pct"] %>% compaction
                 <% if d["required_compaction_pct"].present? %>
                   <span class="text-muted">(req <%= d["required_compaction_pct"] %>%)</span>
                 <% end %>
-              <% when "P-610" %>
+              <% when "p610_concrete" %>
                 Set <%= d["set_number"] %>
                 <% if d["avg_strength_psi"].present? %>
                   — <%= number_with_delimiter(d["avg_strength_psi"].to_i) %> psi

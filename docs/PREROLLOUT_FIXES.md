@@ -1,6 +1,6 @@
 # Pre-Rollout Issue Triage — Ranked by Impact
 
-> **Status as of April 2026:** 7 of 10 issues have been fixed. See ✅/⚠️ markers below.
+> **Status as of May 2026:** 8 of 10 issues fully shipped, 1 partially shipped (server-side only), 1 open. See ✅/⚠️ markers below.
 
 ## TIER 1 — Active Bugs Causing Data Loss or Corruption
 
@@ -42,13 +42,17 @@ The midpoint calculation in `app/javascript/controllers/report_form_controller.j
 
 ## TIER 2 — Usability Blockers for Field Inspectors
 
-### #3 — Photo compression before upload `HIGH` ⚠️ NOT YET IMPLEMENTED
+### #3 — Photo compression before upload `HIGH` ⚠️ SERVER-SIDE SHIPPED, CLIENT-SIDE OPTIONAL
 
-No client-side compression exists. Combined with the 1MB nginx limit (#4), mobile uploads are essentially broken. The `image_processing` gem is in the `Gemfile` but only used for display thumbnails, not upload processing.
+Server-side compression is fully implemented. `app/models/report_attachment.rb:11` enqueues `ReportAttachmentCompressionJob` on create/update when `image_needs_compression?` returns true (image content type, size > `ImageCompressor::MAX_BYTES` = 3 MB). `app/services/image_compressor.rb` uses `ImageProcessing::MiniMagick` to resize to 4096px max, strip EXIF, convert non-JPEG (incl. HEIC/HEIF) to JPEG, and binary-search quality between 75–92 to land under 3 MB. Combined with the 50 MB nginx limit (#4), uploads are no longer broken.
 
-**Fix**: add client-side JS compression (e.g., `browser-image-compression`) to resize before submission, plus a server-side `image_processing` callback on `ReportAttachment` as a safety net. Must fix #4 first or in parallel.
+The remaining gap is **client-side** compression. With nginx at 50 MB nothing is rejected at the edge, but cellular uploads of raw 6–8 MB iPhone photos still take 10–20s each. This is a quality-of-life optimization, not a correctness fix.
 
-**Files**: New JS module or updates to `app/javascript/controllers/report_form_controller.js`, `app/models/report_attachment.rb`
+**Recommended approach if pursued**: skip the `browser-image-compression` npm package (this app uses importmap-rails — adding npm deps requires vendoring a UMD build). Use native `Canvas` + `toBlob('image/jpeg', 0.82)` in `report_form_controller.js`, capped at ~1600px, with silent fall-through to the original on failure (Canvas can't decode HEIC on Android Chrome — the server-side job catches that case).
+
+**Files**: `app/javascript/controllers/report_form_controller.js` (only — server side is done)
+
+**Resolution (server-side):** `ReportAttachment#after_commit :enqueue_image_compression` + `ImageCompressor` service handle resize, EXIF strip, HEIC→JPEG conversion, and quality binary search asynchronously via Sidekiq.
 
 ---
 
@@ -90,35 +94,42 @@ The User model has **no name fields** — only `email`. `report.rb` `inspector_n
 
 ---
 
-### #10 — Default to correct project `LOW`
+### #10 — Default to correct project `LOW` ⚠️ SCOPED DOWN — SEED RENAME ONLY
 
-`reports_controller.rb` (line 68–70) hardcodes `Project.find_by(name: 'Runway 1R Rehabilitation')`. The desired project name "Runway 1R-19L Rehabilitation & TWY W" doesn't exist in seeds.
+The original report described a hardcoded `Project.find_by(name: ...)` lookup in the controller. That bug does not exist: `app/controllers/reports_controller.rb:80–83` falls back to `Project.order(created_at: :desc).first`, which is safe and never returns the wrong project by name. The remaining issue is purely cosmetic — the seeded project name in `db/seeds.rb:72` is "Runway 1R Rehabilitation" rather than the desired "Runway 1R-19L Rehabilitation & TWY W".
 
-**Fix**: rename the project in the DB (migration or seed update) and update the controller lookup string. Better long-term: make it configurable via an environment variable.
+**Fix**: update the project name in `db/seeds.rb:72`. Note that `find_or_create_by!` will not rename existing dev/staging rows — those need a one-off `UPDATE projects SET name = 'Runway 1R-19L Rehabilitation & TWY W' WHERE name = 'Runway 1R Rehabilitation'` or a data migration. View placeholder text referencing "Runway 1R" (`_form.html.erb:19`, `_overview_tab.html.erb:77`) is unaffected and can stay.
 
-**Files**: `db/seeds.rb`, `app/controllers/reports_controller.rb` (line 68–70)
+**Files**: `db/seeds.rb` (line 72), plus a data migration for existing rows.
 
 ---
 
-### #9 — SoV category for bid items `LOW`
+### #9 — SoV category for bid items `LOW` ⚠️ OPEN — NEEDS VOCABULARY DECISION
 
-Good news: `sov_category` column **already exists** on `bid_items` (string, indexed). It just needs to be populated.
+`sov_category` column exists on `bid_items` (`db/schema.rb:124`, indexed at line 128) and **is** actively read by the UI: it appears as a column in `app/views/projects/_bid_items_tab.html.erb:26` and `app/views/bid_items/index.html.erb:41`, and powers the "Group by SoV Category" option in the data view (`app/views/reports/data_view.html.erb:71`, backed by `app/controllers/reports_controller.rb:491–551`). Today every value is blank, so the grouping falls through to "Uncategorized."
 
-**Fix**: update seed data to set `sov_category` values per bid item. If a percent-completion tracking view is needed, that is a separate feature build.
+**Fix**: pick a category vocabulary, then update `db/seeds.rb` bid-item creation blocks to set `sov_category` per item. Suggested grouping based on FAA spec divisions:
+- **Earthwork**: P-152, P-209, P-210
+- **Base Course**: P-304, P-306
+- **Paving**: P-401, P-403, P-501, P-502
+- **Marking**: P-620, P-621
+- **Drainage**: P-610
 
-**Files**: `db/seeds.rb`
+Existing dev/staging rows will need a backfill — seeds use `find_or_create_by!` so re-seeding alone won't update them.
+
+**Files**: `db/seeds.rb`, plus a data migration for existing rows.
 
 ---
 
 ## TIER 4 — UX Polish
 
-### #8 — Remind users about 6-photo limit `LOW` ⚠️ NOT YET IMPLEMENTED
+### #8 — Remind users about 6-photo limit `LOW` ✅ FIXED
 
-`PHOTO_SLOT_COUNT = 6` is hardcoded in both `app/services/python_docx_exporter.rb` and `python/export_report.py`. Users aren't warned before or after upload.
-
-**Fix**: add a visible note in the attachments section of `app/views/reports/_form.html.erb` (~line 482) and optionally a warning badge when attachment count exceeds 6.
+`app/views/reports/_form.html.erb:742–750` shows a static reminder ("Up to 6 photos will be included in Word exports. Additional attachments are saved but won't appear in the report document.") plus a conditional `alert-warning` banner that fires when `attachment_count > 6`. The 6-photo cap is enforced server-side at export time via `.limit(PHOTO_SLOT_COUNT)` in `app/services/python_docx_exporter.rb:228`.
 
 **Files**: `app/views/reports/_form.html.erb`
+
+**Resolution:** Static reminder + dynamic over-limit warning shipped. Note: `PHOTO_SLOT_COUNT = 6` is duplicated across three files (`python/export_report.py:53`, `app/services/python_docx_exporter.rb:6`, `app/services/report_ai/payload_builder.rb:6`) — DRYing across Ruby + Python is non-trivial and tracked separately if ever needed.
 
 ---
 
@@ -135,10 +146,11 @@ Good news: `sov_category` column **already exists** on `bid_items` (string, inde
 - [x] **#4**: Upload 3+ phone photos (3 MB each) simultaneously → all persist after save
 - [x] **#2**: Create report with shift 22:00–06:00 → weather slots show correct hours (22:00, 02:00, 06:00)
 - [x] **#1**: Change shift_start from 07:00 to 10:00 → weather auto-refetches for new times
-- [ ] **#3**: Upload a 5 MB photo from phone → arrives compressed (< 1 MB) at server
+- [x] **#3 (server-side)**: Upload a 6 MB photo → Sidekiq job replaces it with a < 3 MB JPEG within seconds
+- [ ] **#3 (client-side, optional)**: Upload from phone → file leaves the device < 1 MB
 - [x] **#6**: Delete button visible on report show page → confirm dialog → report removed → redirect to index
 - [x] **#5**: User with name set → export shows "John Smith" not "jsmith@company.com"
 - [x] **#7**: New spec items visible in checklist dropdowns when creating a report
-- [ ] **#10**: New report form defaults to "Runway 1R-19L Rehabilitation & TWY W"
+- [ ] **#10**: Seeded project renamed to "Runway 1R-19L Rehabilitation & TWY W" + existing rows backfilled
 - [ ] **#9**: SoV categories populated and visible on bid items
-- [ ] **#8**: Warning text visible in attachments section of report form
+- [x] **#8**: Warning text visible in attachments section of report form (and over-limit banner fires at 7+)

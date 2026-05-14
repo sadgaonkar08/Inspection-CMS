@@ -1,0 +1,5 @@
+<%# Rendered as a turbo-frame response for lazy tab loading on the project show page. %>
+<% partial_name = "projects/#{params[:tab].tr('-', '_')}_tab" %>
+<%= turbo_frame_tag "tab-#{params[:tab]}", target: "_top" do %>
+  <%= render partial_name %>
+<% end %>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_24_000001) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_03_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -348,6 +348,30 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_24_000001) do
     t.decimal "longitude", precision: 10, scale: 6
   end
 
+  create_table "pwl_calculations", force: :cascade do |t|
+    t.bigint "asphalt_lot_id", null: false
+    t.string "parameter", null: false
+    t.integer "n"
+    t.jsonb "sample_values", default: [], null: false
+    t.decimal "mean", precision: 10, scale: 4
+    t.decimal "std_dev", precision: 10, scale: 4
+    t.decimal "lower_limit", precision: 10, scale: 4
+    t.decimal "upper_limit", precision: 10, scale: 4
+    t.decimal "q_lower", precision: 10, scale: 4
+    t.decimal "q_upper", precision: 10, scale: 4
+    t.integer "p_lower"
+    t.integer "p_upper"
+    t.integer "pwl_percentage"
+    t.string "status", null: false
+    t.datetime "calculated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "criteria_type", default: "pwl", null: false
+    t.boolean "passed"
+    t.index ["asphalt_lot_id", "parameter"], name: "index_pwl_calculations_on_asphalt_lot_id_and_parameter", unique: true
+    t.index ["asphalt_lot_id"], name: "index_pwl_calculations_on_asphalt_lot_id"
+  end
+
   create_table "qa_entries", force: :cascade do |t|
     t.bigint "report_id", null: false
     t.integer "qa_type"
@@ -560,6 +584,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_24_000001) do
   add_foreign_key "placed_quantities", "bid_items"
   add_foreign_key "placed_quantities", "change_orders"
   add_foreign_key "placed_quantities", "reports"
+  add_foreign_key "pwl_calculations", "asphalt_lots"
   add_foreign_key "qa_entries", "reports"
   add_foreign_key "report_attachments", "reports"
   add_foreign_key "report_core_generations", "core_generations"

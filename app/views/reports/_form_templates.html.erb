@@ -122,7 +122,7 @@
                <option value="">Select Item</option>
                <% if @report.project %>
                  <% @report.project.bid_items.order(:code).each do |bi| %>
-                   <option value="<%= bi.id %>" data-questions="<%= bi.active_questions.to_json %>" data-has-override="<%= bi.checklist_questions.present? %>" data-unit="<%= bi.unit %>">
+                   <option value="<%= bi.id %>" data-unit="<%= bi.unit %>">
                      <%= bi.code %> - <%= bi.description %>
                    </option>
                  <% end %>

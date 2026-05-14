@@ -13,9 +13,9 @@ Use semantic versioning for release labels in this repository.
 
 ### Established Release Milestones
 
-- April 9, 2026 Asphalt Core Locator milestone = `1.0.0`
-- April 23, 2026 lab test forms milestone = `1.1.0`
-- Next bug-fix release after April 23, 2026 = `1.1.1`
+- PWL analysis + checklist show-page improvements = `1.2.0`
+- P-401/P-403 acceptance criteria + sort cores by sublot + bug fixes = `1.2.1`
+- P-401 cores end-to-end (multi-lot routing, statistical PWL for compaction), lab import progress UI, lazy tab fix = `1.3.0`
 
 Maintain this section as a rolling record of the last 3 successful pushes.
 After each successful push, replace the oldest entry so this list always reflects the newest 3 pushed versions.

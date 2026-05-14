@@ -65,12 +65,12 @@
   <% if @results.empty? %>
     <div class="alert alert-info">No results match your filters. Upload a lab report to get started.</div>
   <% else %>
-    <% @results.group_by(&:spec_code).each do |spec, rows| %>
-      <h3 class="mt-4"><%= spec %> <span class="text-muted">(<%= rows.size %>)</span></h3>
+    <% @results.group_by { |r| [r.spec_code, result_view_key(r)] }.each do |(spec, view_key), rows| %>
+      <h3 class="mt-4"><%= result_view_label(spec, view_key) %> <span class="text-muted">(<%= rows.size %>)</span></h3>
       <div class="table-card mb-4">
         <div class="table-responsive">
           <table class="modern-table dashboard-table">
-            <%= render "columns_#{spec_partial_key(spec)}", rows: rows, project: @project %>
+            <%= render "columns_#{view_key}", rows: rows, project: @project %>
           </table>
         </div>
       </div>

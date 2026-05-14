@@ -95,6 +95,17 @@ class User < ApplicationRecord
     qc? || admin?
   end
 
+  # Projects this user can see in filter dropdowns. QC/admin see everything;
+  # inspectors are restricted to projects they have reports in, since
+  # ReportsController#index already scopes their reports the same way.
+  def accessible_projects
+    if can_qc?
+      Project.order(:name)
+    else
+      Project.where(id: reports.select(:project_id)).order(:name)
+    end
+  end
+
   # ── API Token Authentication ────────────────────────────────────────
   # Tokens are stored as bcrypt digests. The plaintext is shown once at
   # generation time and never persisted.

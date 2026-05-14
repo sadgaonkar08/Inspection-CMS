@@ -10,7 +10,7 @@
       <%= form_with url: reports_path, method: :get, local: true, class: "context-form" do |f| %>
         <%= hidden_field_tag :status, params[:status] %>
         <%= hidden_field_tag :tab, params[:tab] %>
-        <%= f.collection_select :project_id, Project.all, :id, :name,
+        <%= f.collection_select :project_id, current_user.accessible_projects, :id, :name,
             { include_blank: "All Projects", selected: params[:project_id] },
             { onchange: "this.form.submit()", class: "project-select-compact" } %>
       <% end %>

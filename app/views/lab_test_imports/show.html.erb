@@ -1,7 +1,9 @@
 <div class="dashboard-container"
      data-controller="lab-test-import"
      data-lab-test-import-id-value="<%= @import.id %>"
-     data-lab-test-import-initial-status-value="<%= @import.status %>">
+     data-lab-test-import-initial-status-value="<%= @import.status %>"
+     data-lab-test-import-started-at-value="<%= (@import.created_at.to_f * 1000).to_i %>"
+     data-lab-test-import-stall-threshold-value="30000">
   <div class="dashboard-header">
     <h1>Lab Test Import #<%= @import.id %></h1>
     <div>

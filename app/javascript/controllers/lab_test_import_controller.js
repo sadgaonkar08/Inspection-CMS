@@ -4,10 +4,12 @@ import consumer from "channels/consumer"
 // Connects to data-controller="lab-test-import"
 // Subscribes to LabTestImportChannel and reloads the status panel when status changes.
 export default class extends Controller {
-  static targets = ["statusBadge", "statusPanel", "rowCount", "labName"]
+  static targets = ["statusBadge", "statusPanel", "rowCount", "labName", "elapsed", "stallWarning"]
   static values = {
     id: Number,
-    initialStatus: String
+    initialStatus: String,
+    startedAt: Number,
+    stallThreshold: { type: Number, default: 30000 }
   }
 
   connect() {
@@ -21,12 +23,45 @@ export default class extends Controller {
         received: (data) => this.onStatusChange(data)
       }
     )
+
+    this.startElapsedTimer()
   }
 
   disconnect() {
     if (this.subscription) {
       this.subscription.unsubscribe()
     }
+    this.stopElapsedTimer()
+  }
+
+  startElapsedTimer() {
+    if (!this.hasElapsedTarget || !this.startedAtValue) return
+    this.tick()
+    this.elapsedTimer = setInterval(() => this.tick(), 1000)
+  }
+
+  stopElapsedTimer() {
+    if (this.elapsedTimer) {
+      clearInterval(this.elapsedTimer)
+      this.elapsedTimer = null
+    }
+  }
+
+  tick() {
+    const elapsedMs = Date.now() - this.startedAtValue
+    if (this.hasElapsedTarget) {
+      this.elapsedTarget.textContent = this.formatElapsed(elapsedMs)
+    }
+    if (this.hasStallWarningTarget && elapsedMs >= this.stallThresholdValue) {
+      this.stallWarningTarget.classList.remove("d-none")
+    }
+  }
+
+  formatElapsed(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
   onStatusChange(data) {
@@ -42,6 +77,7 @@ export default class extends Controller {
     }
 
     if (this.isTerminal(data.status)) {
+      this.stopElapsedTimer()
       // Reload to render the server-side status panel for the new state.
       window.location.reload()
     }

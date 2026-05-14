@@ -1,10 +1,11 @@
 class PwlRecalculationJob < ApplicationJob
   queue_as :lab_extraction
 
-  # P-401 uses statistical PWL (FAA AC 150/5370-10H). For each parameter:
-  # which spec the values come from, the JSONB key holding the per-sublot value,
-  # the keys holding the parsed L/U limits, and an optional JSONB-containment
-  # filter (e.g. core_type=mat).
+  # P-401 acceptance is statistical PWL (FAA AC 150/5370-10H) for every
+  # parameter — air voids and core compaction both. Compaction is single-sided
+  # (lower limit only); the limit comes from the per-row `required_compaction_pct`
+  # the lab report states (e.g. "Surface Mat ≥ 92.8%; Joint ≥ 90.5%"). Mat vs joint
+  # is selected by JSONB-containment filter on `core_type`.
   P401_PARAMETERS = {
     "air_voids" => {
       spec_code: "P-401",
@@ -12,6 +13,20 @@ class PwlRecalculationJob < ApplicationJob
       lower_limit_key: "air_voids_min_pct",
       upper_limit_key: "air_voids_max_pct",
       data_filter: nil
+    },
+    "mat_density" => {
+      spec_code: "P-401",
+      value_key: "compaction_pct",
+      lower_limit_key: "required_compaction_pct",
+      upper_limit_key: nil,
+      data_filter: { "core_type" => "mat" }
+    },
+    "joint_density" => {
+      spec_code: "P-401",
+      value_key: "compaction_pct",
+      lower_limit_key: "required_compaction_pct",
+      upper_limit_key: nil,
+      data_filter: { "core_type" => "joint" }
     }
   }.freeze
 
@@ -62,7 +77,7 @@ class PwlRecalculationJob < ApplicationJob
   def recalculate_p401(lot)
     P401_PARAMETERS.each do |parameter, source|
       results = source_results(lot, source)
-      values = results.map { |r| r.data&.dig(source[:value_key]) }.compact
+      values = results.map { |r| r.data&.dig(source[:value_key]) }.compact.map(&:to_f)
 
       if values.empty?
         PwlCalculation.where(asphalt_lot_id: lot.id, parameter: parameter).delete_all
@@ -87,11 +102,21 @@ class PwlRecalculationJob < ApplicationJob
         next
       end
 
+      # For compaction parameters, prefer the per-row required_compaction_pct
+      # from the lab report — projects may set thresholds tighter or looser
+      # than the FAA spec defaults.
+      lower_limit =
+        if source[:value_key] == "compaction_pct"
+          first_non_nil(results, "required_compaction_pct") || source[:lower_limit]
+        else
+          source[:lower_limit]
+        end
+
       PwlCalculation.upsert_average_threshold(
         lot,
         parameter,
         sample_values: values,
-        lower_limit: source[:lower_limit],
+        lower_limit: lower_limit,
         upper_limit: source[:upper_limit]
       )
     end

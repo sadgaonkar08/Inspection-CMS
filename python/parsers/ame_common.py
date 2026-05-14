@@ -24,12 +24,13 @@ def is_cores_report(text: str) -> bool:
     """True for AME core/compaction reports (used for both P-403 and P-401 cores).
 
     Cores reports always carry a 'Core ID' header row and a 'Compaction*, %' row;
-    HMA mix reports have neither. Both markers are required so a stray mention in
-    body prose doesn't trigger a false positive.
+    HMA mix reports have neither. The Core ID row may be prefixed with 'Mat ' or
+    'Joint ' on multi-lot reports — accept either. Both markers are required so a
+    stray mention in body prose doesn't trigger a false positive.
     """
     if not is_ame_report(text):
         return False
-    has_core_id = re.search(r"^\s*Core\s+ID\s+", text, re.MULTILINE) is not None
+    has_core_id = re.search(r"^\s*(?:Mat|Joint)?\s*Core\s+ID\s+", text, re.MULTILINE) is not None
     has_compaction = re.search(r"Compaction\*?,?\s*%", text) is not None
     return has_core_id and has_compaction
 

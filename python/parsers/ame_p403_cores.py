@@ -39,9 +39,17 @@ EXPECTED_FIELDS = [
     "result",
 ]
 
-SUBLOT_LINE_RE = re.compile(r"^\s*Lot/Sublot\s+(.+)$", re.MULTILINE)
-CORE_ID_LINE_RE = re.compile(r"^\s*Core\s+ID\s+(.+)$", re.MULTILINE)
-# Sublot label pattern allowing optional whitespace around the slash: "TS/SL1", "TS /SL2", "TS / SL3"
+# "Lot/Sublot" header line. Old single-lot format: "Lot/Sublot TS/SL1 TS/SL2 TS/SL3".
+# New multi-lot format: "Lot/Sublot: 5/6/26 L3/SL3 L4/SL1 L4/SL2 L4/SL3" \u2014 has a colon,
+# a leading paving date, and lot-prefixed sublot tokens. Accept both.
+SUBLOT_LINE_RE = re.compile(r"^\s*Lot/Sublot:?\s+(.+)$", re.MULTILINE)
+# Core ID row may be prefixed with "Mat " or "Joint " on multi-lot reports.
+CORE_ID_LINE_RE = re.compile(r"^\s*(?P<kind>Mat|Joint)?\s*Core\s+ID\s+(?P<ids>.+)$", re.MULTILINE)
+# Core IDs are always M<n> (mat) or J<n> (joint). Match strictly so placeholder
+# cells (".." filler when a 3-column template only has 2 lots of data) don't get
+# counted as IDs and trigger a spurious column_count_mismatch.
+CORE_ID_TOKEN_RE = re.compile(r"\b[MJ]\d+\b", re.IGNORECASE)
+# Sublot label pattern allowing optional whitespace around the slash: "TS/SL1", "L3/SL3", "TS /SL2"
 SUBLOT_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*\s*/\s*SL\d+")
 THICK_AR_RE = re.compile(r"Average\s+Core\s+Thickness\s*\(as-received\)[^\n]*?\.\s*(.+)")
 THICK_TR_RE = re.compile(r"Average\s+Core\s+Thickness\s*\(trimmed\)[^\n]*?\.\s*(.+)")
@@ -49,10 +57,14 @@ GMB_RE = re.compile(r"ASTM\s+(D\d+)\s*,\s*Bulk Specific Gravity\s+(.+)")
 GMM_RE = re.compile(r"Theoretical\s+Max\.?\s+Specific\s+Gravity\s+(.+)")
 COMPACTION_RE = re.compile(r"Compaction\*?,?\s*%\s+(.+)")
 
+# Old P-403 requirements line: "Project Requirements: Mat. >= 94% ; Joint >= 92%".
+# New P-401 multi-threshold line: "Project Requirements: Surface Mat \u2265 92.8%; Base Mat \u2265 92.0%; Joint \u2265 90.5%".
+# We always use the Surface Mat threshold for mat cores (production cores from a paving lift
+# are virtually always the surface course unless labeled otherwise).
 REQUIREMENTS_RE = re.compile(
     r"Project\s+Requirements?:\s*"
-    r"Mat\.?\s*[>\u2265]=?\s*(?P<mat>[\d.]+)\s*%"
-    r"\s*;\s*"
+    r"(?:Surface\s+)?Mat\.?\s*[>\u2265]=?\s*(?P<mat>[\d.]+)\s*%"
+    r"[^\n]*?"
     r"Joint\s*[>\u2265]=?\s*(?P<joint>[\d.]+)\s*%",
     re.IGNORECASE,
 )
@@ -104,7 +116,7 @@ def _parse_group(group_text: str, group_index: int, req_mat, req_joint):
     tag = f"@group{group_index + 1}"
 
     sublots = _extract_sublot_tokens(group_text)
-    core_ids = _extract_core_id_tokens(group_text)
+    group_core_type, core_ids = _extract_core_id_tokens(group_text)
 
     if not sublots or not core_ids:
         errors.append(f"missing_sublot_or_core_id_row{tag}")
@@ -128,7 +140,10 @@ def _parse_group(group_text: str, group_index: int, req_mat, req_joint):
     rows = []
     for i in range(n):
         core_id = core_ids[i]
-        core_type = CORE_TYPE_PREFIX.get(core_id[:1].upper()) if core_id else None
+        # Prefer the "Mat Core ID" / "Joint Core ID" group header when present
+        # (multi-lot reports may have M3 in mat cores AND J3 in joint cores —
+        # the per-letter fallback would still work, but the header is authoritative).
+        core_type = group_core_type or (CORE_TYPE_PREFIX.get(core_id[:1].upper()) if core_id else None)
         if core_type is None:
             errors.append(f"unknown_core_type:{core_id}{tag}")
 
@@ -178,10 +193,14 @@ def _extract_sublot_tokens(group_text: str):
 
 
 def _extract_core_id_tokens(group_text: str):
+    """Returns (core_type, [core_id, ...]). core_type is "mat", "joint", or None
+    (None when the row has no explicit kind prefix — caller falls back to first letter)."""
     m = CORE_ID_LINE_RE.search(group_text)
     if not m:
-        return []
-    return m.group(1).split()
+        return None, []
+    kind = m.group("kind")
+    core_type = {"Mat": "mat", "Joint": "joint"}.get(kind.title()) if kind else None
+    return core_type, CORE_ID_TOKEN_RE.findall(m.group("ids"))
 
 
 def _numeric_columns(pattern: re.Pattern, text: str, n: int):

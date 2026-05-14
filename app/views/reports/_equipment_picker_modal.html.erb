@@ -1,6 +1,5 @@
-<%# Equipment Picker Modal - Multi-select with categories %>
+<%# Equipment Picker Modal - shell only; equipment options load lazily on first open. %>
 <% project_context = report.project || (@project if defined?(@project)) %>
-<% approved_equipments = project_context&.approved_equipments || [] %>
 
 <dialog data-equipment-picker-target="modal" class="equipment-picker-modal">
   <div class="modal-header">
@@ -8,85 +7,28 @@
     <button type="button" class="btn-clear" data-action="click->equipment-picker#closeModal">✕</button>
   </div>
 
-    <div class="modal-body">
-      <% if approved_equipments.any? %>
-        <%# Equipment Grid - 4 columns by category %>
-        <div class="equipment-grid">
-          <% ApprovedEquipment::CATEGORIES.each do |category| %>
-            <div class="equipment-category-column">
-              <h4 class="equipment-category-header"><%= category %></h4>
-              <div class="equipment-list">
-                <% category_equipment = approved_equipments.select { |eq| eq.category == category } %>
-                <% if category_equipment.any? %>
-                  <% category_equipment.each do |equipment| %>
-                    <div class="equipment-item">
-                      <div class="equipment-name"><%= equipment.name %></div>
-                      <label class="equipment-checkbox">
-                        <input type="checkbox" 
-                               class="equipment-bubble"
-                               data-equipment-picker-target="equipmentCheckbox"
-                               data-equipment-id="<%= equipment.id %>"
-                               data-equipment-name="<%= equipment.name %>"
-                               data-action="change->equipment-picker#updateSelection">
-                        <span class="bubble"></span>
-                      </label>
-                    </div>
-                  <% end %>
-                <% else %>
-                  <p class="text-muted-sm">No equipment</p>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-        </div>
-
-        <%# Global Options Section %>
-        <div class="equipment-global-options">
-          <h4 class="mb-3">Apply to All Selected (Optional)</h4>
-          <div class="form-row">
-            <div class="form-group flex-2">
-              <label class="text-sm">Contractor</label>
-              <input type="text" 
-                     class="w-full" 
-                     data-equipment-picker-target="globalContractor"
-                     placeholder="Leave blank to set individually">
-            </div>
-            <div class="form-group flex-1">
-              <label class="text-sm">Hours</label>
-              <input type="number" 
-                     step="0.5" 
-                     class="w-full" 
-                     data-equipment-picker-target="globalHours"
-                     placeholder="Hrs">
-            </div>
-          </div>
-          <p class="text-muted-sm">These values will be applied to all selected equipment. You can edit individual cards after creation.</p>
-        </div>
-
-        <%# Selection Summary %>
-        <div class="equipment-selection-summary" data-equipment-picker-target="summary">
-          <span data-equipment-picker-target="selectionCount">0</span> equipment selected
-        </div>
-
-      <% else %>
-        <div class="equipment-empty-state">
-          <p class="text-muted">No approved equipment configured for this project.</p>
-          <p class="text-muted-sm">Add equipment in the project settings first.</p>
-        </div>
+  <div class="modal-body">
+    <% if project_context %>
+      <%= turbo_frame_tag "equipment_picker_options",
+            data: {
+              equipment_picker_target: "optionsFrame",
+              lazy_src: equipment_picker_options_reports_path(project_id: project_context.id)
+            } do %>
+        <p class="text-muted-sm">Loading equipment…</p>
       <% end %>
-    </div>
+    <% else %>
+      <div class="equipment-empty-state">
+        <p class="text-muted">Save the project before adding equipment.</p>
+      </div>
+    <% end %>
+  </div>
 
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" data-action="click->equipment-picker#closeModal">Cancel</button>
-      <button type="button" 
-              class="btn-primary" 
-              data-action="click->equipment-picker#createEntries"
-              data-equipment-picker-target="createBtn"
-      </button>
-    </div>
-  </dialog>
-
-  <%# Hidden data store for equipment information %>
-  <script id="equipment-data-store" type="application/json">
-    <%= approved_equipments.map { |eq| { id: eq.id, name: eq.name, category: eq.category } }.to_json.html_safe %>
-  </script>
+  <div class="modal-footer">
+    <button type="button" class="btn-secondary" data-action="click->equipment-picker#closeModal">Cancel</button>
+    <button type="button"
+            class="btn-primary"
+            data-action="click->equipment-picker#createEntries"
+            data-equipment-picker-target="createBtn"
+            disabled></button>
+  </div>
+</dialog>

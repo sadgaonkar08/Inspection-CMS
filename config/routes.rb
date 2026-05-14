@@ -14,6 +14,7 @@ Rails.application.routes.draw do
       post :import_docx
       get :data_view
       get :copy_candidates
+      get :equipment_picker_options
     end
     member do
       post :submit_for_qc

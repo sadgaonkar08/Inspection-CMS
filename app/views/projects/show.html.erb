@@ -45,27 +45,11 @@
     <%= render "projects/overview_tab" %>
   </div>
 
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="bid-items">
-    <%= render "projects/bid_items_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="lab-tests">
-    <%= render "projects/lab_tests_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="equipment">
-    <%= render "projects/equipment_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="phases">
-    <%= render "projects/phases_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="change-orders">
-    <%= render "projects/change_orders_tab" %>
-  </div>
-
-  <div class="directory-panel d-none" data-tabs-target="panel" data-tab="asphalt-lots">
-    <%= render "projects/asphalt_lots_tab" %>
-  </div>
+  <% %w[bid-items lab-tests equipment phases change-orders asphalt-lots].each do |tab| %>
+    <div class="directory-panel d-none" data-tabs-target="panel" data-tab="<%= tab %>">
+      <%= turbo_frame_tag "tab-#{tab}", src: project_path(@project, tab: tab), loading: "lazy", target: "_top" do %>
+        <p class="text-muted">Loading…</p>
+      <% end %>
+    </div>
+  <% end %>
 </div>

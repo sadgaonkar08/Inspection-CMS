@@ -116,20 +116,37 @@ class ReportsController < ApplicationController
     end
 
     apply_search_filters
-    
+
     # Order by relevance if searching, otherwise by date
     if params[:search_text].present?
       @reports = @reports.order(Arel.sql('search_rank DESC NULLS LAST, start_date DESC'))
     else
       @reports = @reports.order(start_date: :desc)
     end
-    
-    # Paginate results
-    @pagy, @reports = pagy(@reports)
+
+    last_modified = @reports.maximum(:updated_at)
+    cache_components = {
+      uid: current_user.id,
+      revise: @has_revise_reports,
+      filters: params.permit(
+        :tab, :status, :project_id, :inspector,
+        :bid_item_id, :phase_id, :has_quantities,
+        :spec_division, :spec_item_id, :result,
+        :precip_min, :precip_max, :start_date, :end_date,
+        :search_text, :page
+      ).to_h
+    }
 
     respond_to do |format|
-      format.html
-      format.csv { stream_csv(@reports) }
+      format.html do
+        if stale?(etag: [last_modified, cache_components], last_modified: last_modified, public: false)
+          @pagy, @reports = pagy(@reports)
+        end
+      end
+      format.csv do
+        @pagy, @reports = pagy(@reports)
+        stream_csv(@reports)
+      end
     end
   end
 
@@ -151,6 +168,12 @@ class ReportsController < ApplicationController
 
   def data_view
     build_data_view
+  end
+
+  def equipment_picker_options
+    @project = Project.find(params[:project_id])
+    @approved_equipments = @project.approved_equipments.order(:category, :name)
+    render layout: false
   end
 
   def copy_candidates

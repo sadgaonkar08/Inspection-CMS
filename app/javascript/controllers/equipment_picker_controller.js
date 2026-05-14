@@ -2,15 +2,16 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "modal", 
-    "equipmentCheckbox", 
-    "globalContractor", 
+    "modal",
+    "optionsFrame",
+    "equipmentCheckbox",
+    "globalContractor",
     "globalHours",
     "selectionCount",
     "summary",
     "createBtn"
   ]
-  
+
   static values = {
     reportContractor: String
   }
@@ -18,10 +19,13 @@ export default class extends Controller {
   connect() {
     console.log("🛠️ Equipment Picker Controller Connected");
     this.successMessageTimeout = null;
-    
-    // Pre-fill contractor from report if available
-    if (this.hasGlobalContractorTarget && this.reportContractorValue) {
-      this.globalContractorTarget.value = this.reportContractorValue;
+  }
+
+  // Pre-fill contractor whenever the field enters the DOM. Fires both for
+  // inline-rendered modals and for ones loaded via the lazy turbo-frame.
+  globalContractorTargetConnected(element) {
+    if (this.reportContractorValue) {
+      element.value = this.reportContractorValue;
     }
   }
 
@@ -36,9 +40,24 @@ export default class extends Controller {
     }
   }
 
-  openModal() {
+  async openModal() {
+    await this.ensureOptionsLoaded();
     this.modalTarget.showModal();
     this.updateSelection(); // Initialize button state
+  }
+
+  // Trigger the lazy turbo-frame fetch on first open; subsequent opens skip.
+  async ensureOptionsLoaded() {
+    if (!this.hasOptionsFrameTarget) return;
+    const frame = this.optionsFrameTarget;
+    if (frame.src) return; // already loaded or in-flight
+    const lazySrc = frame.dataset.lazySrc;
+    if (!lazySrc) return;
+    const loaded = new Promise((resolve) => {
+      frame.addEventListener("turbo:frame-load", resolve, { once: true });
+    });
+    frame.src = lazySrc;
+    await loaded;
   }
 
   closeModal() {

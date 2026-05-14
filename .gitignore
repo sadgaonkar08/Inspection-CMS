@@ -76,4 +76,7 @@ build/
 /mcp-server/
 /.claude/skills/
 
-.idea/*
+app_logs.zip
+app_logs_latest.zip
+app_logs/*
+app_logs_latest/*

@@ -39,6 +39,9 @@ class LabTestImportsController < ApplicationController
         persist_results_from_parsed_data!(@import)
         @import.update!(status: "saved")
       end
+      @import.lab_test_results.distinct.pluck(:asphalt_lot_id).compact.each do |lot_id|
+        PwlRecalculationJob.perform_later(lot_id)
+      end
       redirect_to project_lab_test_import_path(@project, @import), notice: "Import approved."
     else
       redirect_to project_lab_test_import_path(@project, @import), alert: "Only imports needing review can be approved."
@@ -77,11 +80,14 @@ class LabTestImportsController < ApplicationController
   def persist_results_from_parsed_data!(import)
     rows = Array(import.parsed_data)
     header = import.report_header || {}
+    lot_resolver = LabTestLotResolver.new(import.project)
 
     rows.each do |row|
+      resolved_lot_id = lot_resolver.resolve(row["sublot_number"]) || import.asphalt_lot_id
+
       import.lab_test_results.create!(
         project_id:     import.project_id,
-        asphalt_lot_id: import.asphalt_lot_id,
+        asphalt_lot_id: resolved_lot_id,
         report_id:      import.report_id,
         spec_code:      import.spec_code,
         lab_name:       header["lab_name"] || import.lab_name,

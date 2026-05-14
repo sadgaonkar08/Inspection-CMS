@@ -9,7 +9,10 @@ class ProjectsController < ApplicationController
   end
 
   def show
-    load_project_collections
+    if turbo_frame_request? && params[:tab].present?
+      load_tab_data(params[:tab])
+      render :show_tab, layout: false
+    end
   end
 
   def new
@@ -40,10 +43,7 @@ class ProjectsController < ApplicationController
         format.html { redirect_to project_path(@project, anchor: "overview"), notice: "Project was successfully updated.", status: :see_other }
         format.json { render :show, status: :ok, location: @project }
       else
-        format.html {
-          load_project_collections
-          render :show, status: :unprocessable_entity
-        }
+        format.html { render :show, status: :unprocessable_entity }
         format.json { render json: @project.errors, status: :unprocessable_entity }
       end
     end
@@ -74,19 +74,25 @@ class ProjectsController < ApplicationController
       params.require(:project).permit(:name, :contract_number, :project_manager, :construction_manager, :contract_days, :contract_start_date, :prime_contractor, :latitude, :longitude)
     end
 
-    def load_project_collections
-      @bid_items = @project.bid_items.includes(:spec_item).order(:code)
-      @asphalt_lots = @project.asphalt_lots.includes(:asphalt_sublots, :core_generations).order(:lot_number)
-      @lab_test_imports = @project.lab_test_imports.includes(:asphalt_lot, :report).order(created_at: :desc).limit(10)
-      @lab_test_results_summary = @project.lab_test_results
-                                           .group(:spec_code, :result)
-                                           .count
-      @phases = @project.phases.left_joins(:reports)
-                        .select('phases.*, COUNT(reports.id) AS reports_count')
-                        .group('phases.id')
-                        .order(:name)
-      @approved_equipments = @project.approved_equipments.order(:name)
-      @change_orders = @project.change_orders.order(:number)
+    def load_tab_data(tab)
+      case tab
+      when "bid-items"
+        @bid_items = @project.bid_items.includes(:spec_item).order(:code)
+      when "lab-tests"
+        @lab_test_imports = @project.lab_test_imports.includes(:asphalt_lot, :report).order(created_at: :desc).limit(10)
+        @lab_test_results_summary = @project.lab_test_results.group(:spec_code, :result).count
+      when "equipment"
+        @approved_equipments = @project.approved_equipments.order(:name)
+      when "phases"
+        @phases = @project.phases.left_joins(:reports)
+                          .select('phases.*, COUNT(reports.id) AS reports_count')
+                          .group('phases.id')
+                          .order(:name)
+      when "change-orders"
+        @change_orders = @project.change_orders.order(:number)
+      when "asphalt-lots"
+        @asphalt_lots = @project.asphalt_lots.includes(:asphalt_sublots, :core_generations).order(:lot_number)
+      end
     end
 
     def require_admin!

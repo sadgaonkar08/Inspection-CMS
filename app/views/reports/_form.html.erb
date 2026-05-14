@@ -589,13 +589,11 @@
                   <% current_project = report.project || (@project if defined?(@project)) %>
                   <% collection = current_project ? current_project.bid_items.order(:code) : [] %>
                   
-                  <%= entry_form.select :bid_item_id, 
-                        collection.map { |bi| 
-                          questions = bi.try(:checklist_questions) || bi.try(:active_questions) || []
-                          has_override = bi.checklist_questions.present?
-                          [bi.code + " - " + bi.description, bi.id, { 'data-questions': questions.to_json, 'data-has-override': has_override, 'data-unit': bi.unit }] 
-                        }, 
-                        { prompt: "Select Item..." }, 
+                  <%= entry_form.select :bid_item_id,
+                        collection.map { |bi|
+                          [bi.code + " - " + bi.description, bi.id, { 'data-unit': bi.unit }]
+                        },
+                        { prompt: "Select Item..." },
                         { class: "w-full", data: { action: "change->report-form#selectBidItem" } } %>
                   
                   <% if current_project.nil? %><small class="text-danger">(Save Project to load items)</small><% end %>

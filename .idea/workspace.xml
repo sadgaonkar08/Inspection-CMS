@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3cb8187c-d170-48c1-b1b3-1b5f338a1f35" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/Inspection-CMS.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Inspection-CMS.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

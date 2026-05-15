@@ -24,10 +24,15 @@ class AsphaltLotsController < ApplicationController
       end
 
       # Load PWL calculations if table exists
-      @pwl_calculations = if ActiveRecord::Base.connection.table_exists?(:pwl_calculations)
-        @asphalt_lot.pwl_calculations.order(:parameter)
-      else
-        []
+      begin
+        @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
+      rescue ActiveRecord::StatementInvalid => e
+        if e.message.include?("pwl_calculations") && e.message.include?("does not exist")
+          Rails.logger.warn("PWL calculations table does not exist yet - skipping PWL data load")
+          @pwl_calculations = []
+        else
+          raise e
+        end
       end
 
       group_lab_test_results_by_sublot!

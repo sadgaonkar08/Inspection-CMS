@@ -7,24 +7,30 @@ class AsphaltLotsController < ApplicationController
   end
 
   def show
-    @all_lots = @project.asphalt_lots.order(:lot_number)
-    @generation_history = @asphalt_lot.core_generations
-                                 .includes(:core_locations)
-                                 .order(created_at: :desc)
-                                 .limit(20)
+    begin
+      @all_lots = @project.asphalt_lots.order(:lot_number)
+      @generation_history = @asphalt_lot.core_generations
+                                   .includes(:core_locations)
+                                   .order(created_at: :desc)
+                                   .limit(20)
 
-    @latest_generation = @generation_history.first
-    @latest_generation = @asphalt_lot.core_generations
-                           .includes(core_locations: [:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane])
-                           .find(@latest_generation.id) if @latest_generation
+      @latest_generation = @generation_history.first
+      @latest_generation = @asphalt_lot.core_generations
+                             .includes(core_locations: [:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane])
+                             .find(@latest_generation.id) if @latest_generation
 
-    if @latest_generation
-      @diagram_data = build_lot_diagram_data(@latest_generation)
+      if @latest_generation
+        @diagram_data = build_lot_diagram_data(@latest_generation)
+      end
+
+      @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
+
+      group_lab_test_results_by_sublot!
+    rescue => e
+      Rails.logger.error("Error loading asphalt lot #{@asphalt_lot.id}: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      raise e
     end
-
-    @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
-
-    group_lab_test_results_by_sublot!
   end
 
   def new
@@ -271,14 +277,14 @@ class AsphaltLotsController < ApplicationController
               mark: c.mark, type: c.core_type,
               lane_position: c.lane_index,
               left_lane: c.left_lane&.position, right_lane: c.right_lane&.position,
-              station_ft: c.station_in_lane_ft.to_f,
-              offset_ft: c.offset_in_lane_ft.to_f,
+              station_ft: (c.station_in_lane_ft || 0).to_f,
+              offset_ft: (c.offset_in_lane_ft || 0).to_f,
               adjusted: c.station_adjusted || false
             }
           }
         }
       },
-      buffer_ft: generation.lane_start_buffer_ft.to_f
+      buffer_ft: (generation.lane_start_buffer_ft || 0).to_f
     }
   end
 

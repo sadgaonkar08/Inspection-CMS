@@ -27,9 +27,21 @@ class AsphaltLotsController < ApplicationController
 
       group_lab_test_results_by_sublot!
     rescue => e
-      Rails.logger.error("Error loading asphalt lot #{@asphalt_lot.id}: #{e.message}")
+      error_msg = "Error loading asphalt lot #{@asphalt_lot.id}: #{e.class} - #{e.message}"
+      Rails.logger.error(error_msg)
+      Rails.logger.error("Backtrace:")
       Rails.logger.error(e.backtrace.join("\n"))
-      raise e
+
+      # Also log to a file for easier debugging
+      File.open("/tmp/asphalt_error.log", "a") do |f|
+        f.puts "="*80
+        f.puts "#{Time.now}: #{error_msg}"
+        f.puts e.backtrace.join("\n")
+        f.puts "="*80
+      end
+
+      # Re-raise with more details
+      raise "#{error_msg}\n\nBacktrace:\n#{e.backtrace.join("\n")}"
     end
   end
 

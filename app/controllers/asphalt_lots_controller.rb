@@ -7,52 +7,33 @@ class AsphaltLotsController < ApplicationController
   end
 
   def show
-    begin
-      @all_lots = @project.asphalt_lots.order(:lot_number)
-      @generation_history = @asphalt_lot.core_generations
-                                   .includes(:core_locations)
-                                   .order(created_at: :desc)
-                                   .limit(20)
+    @all_lots = @project.asphalt_lots.order(:lot_number)
+    @generation_history = @asphalt_lot.core_generations
+                               .includes(:core_locations)
+                               .order(created_at: :desc)
+                               .limit(20)
 
-      @latest_generation = @generation_history.first
-      @latest_generation = @asphalt_lot.core_generations
-                             .includes(core_locations: [:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane])
-                             .find(@latest_generation.id) if @latest_generation
+    @latest_generation = @generation_history.first
+    @latest_generation = @asphalt_lot.core_generations
+                           .includes(core_locations: [:asphalt_sublot, :asphalt_lane, :left_lane, :right_lane])
+                           .find(@latest_generation.id) if @latest_generation
 
-      if @latest_generation
-        @diagram_data = build_lot_diagram_data(@latest_generation)
-      end
-
-      # Load PWL calculations if table exists
-      begin
-        @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
-      rescue ActiveRecord::StatementInvalid => e
-        if e.message.include?("pwl_calculations") && e.message.include?("does not exist")
-          Rails.logger.warn("PWL calculations table does not exist yet - skipping PWL data load")
-          @pwl_calculations = []
-        else
-          raise e
-        end
-      end
-
-      group_lab_test_results_by_sublot!
-    rescue => e
-      error_msg = "Error loading asphalt lot #{@asphalt_lot.id}: #{e.class} - #{e.message}"
-      Rails.logger.error(error_msg)
-      Rails.logger.error("Backtrace:")
-      Rails.logger.error(e.backtrace.join("\n"))
-
-      # Also log to a file for easier debugging
-      File.open("/tmp/asphalt_error.log", "a") do |f|
-        f.puts "="*80
-        f.puts "#{Time.now}: #{error_msg}"
-        f.puts e.backtrace.join("\n")
-        f.puts "="*80
-      end
-
-      # Re-raise with more details
-      raise "#{error_msg}\n\nBacktrace:\n#{e.backtrace.join("\n")}"
+    if @latest_generation
+      @diagram_data = build_lot_diagram_data(@latest_generation)
     end
+
+    # Load PWL calculations if table exists
+    begin
+      @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
+    rescue ActiveRecord::StatementInvalid => e
+      if e.message.include?("pwl_calculations") && e.message.include?("does not exist")
+        @pwl_calculations = []
+      else
+        raise e
+      end
+    end
+
+    group_lab_test_results_by_sublot!
   end
 
   def new

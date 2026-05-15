@@ -23,7 +23,12 @@ class AsphaltLotsController < ApplicationController
         @diagram_data = build_lot_diagram_data(@latest_generation)
       end
 
-      @pwl_calculations = @asphalt_lot.pwl_calculations.order(:parameter)
+      # Load PWL calculations if table exists
+      @pwl_calculations = if ActiveRecord::Base.connection.table_exists?(:pwl_calculations)
+        @asphalt_lot.pwl_calculations.order(:parameter)
+      else
+        []
+      end
 
       group_lab_test_results_by_sublot!
     rescue => e
